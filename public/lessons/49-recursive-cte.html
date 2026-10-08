@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recursive CTEs — walking a hierarchy · SQL lesson 49/50 — SQL Visualizer</title>
+  <meta name="description" content="Follow manager → report → report… to any depth. Watch the query's rows move, filter and join — SQL lesson 49 of 50 (Advanced)." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Crect x='6' y='8' width='9' height='5' rx='2' fill='%23fff'/%3E%3Crect x='17' y='13' width='9' height='5' rx='2' fill='%23fcd34d'/%3E%3Crect x='6' y='19' width='9' height='5' rx='2' fill='%2386efac'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="../css/app.css" />
+</head>
+<body class="lesson-page">
+  <header class="topbar">
+    <a class="brand" href="../"><span class="logo"><i></i><i></i><i></i></span> SQL Visualizer</a>
+    <nav><a href="./">📚 All lessons</a><a href="../">▶ Playground</a></nav>
+  </header>
+  <main class="app">
+    <div class="lesson">
+      <aside class="panel lesson-side">
+        <div class="crumbs"><span class="lvl advanced">Advanced</span><span>Lesson 49 of 50</span></div>
+        <div class="lesson-progress"><i style="width:98%"></i></div>
+        <h1>Recursive CTEs — walking a hierarchy</h1>
+        <p class="muted">Follow manager → report → report… to any depth.</p>
+        <h2>The idea</h2>
+        <p>A recursive CTE has two parts joined by <code>UNION ALL</code>: an <b>anchor</b> (start at the CEO, depth 0) and a <b>recursive step</b> that joins the previous round's rows to find their direct reports (depth + 1). It repeats until a round finds nothing new.</p><p>This is how you query org charts, category trees and folder structures.</p>
+        <h2>What to watch</h2>
+        <ul><li>The result lists the CEO at depth 0, their reports at depth 1, and so on down the tree.</li></ul>
+        
+        <div class="callout warn"><b>Careful.</b> Always make sure the recursion can end — a cycle in the data would loop forever (the playground stops after 1000 rounds).</div>
+        <div class="callout"><b>Your turn.</b> The query is live — edit it and press <b>Run</b>. Colours tell you which table each cell came from. Use <b>Reset data</b> to undo any INSERT / UPDATE / DELETE.</div>
+        <nav class="lesson-nav">
+          <a href="48-window-moving-average"><small>← Previous</small>Moving averages with window frames</a>
+          <a class="next" href="50-capstone"><small>Next →</small>Putting it all together</a>
+        </nav>
+      </aside>
+
+      <div class="lesson-main">
+        <div class="panel editor-panel">
+          <div class="toolbar">
+            <button class="btn primary" id="btn-run" title="Ctrl/⌘ + Enter">▶ Run</button>
+            <button class="btn" id="btn-reset" title="Restore all tables, then replay">↺ Reset data &amp; replay</button>
+            <button class="btn" id="btn-restore" title="Put the lesson's original query back">Original query</button>
+            <span class="spacer"></span>
+            <label class="muted" style="display:flex;gap:6px;align-items:center;font-size:12.5px"><input type="checkbox" id="chk-all" /> show all tables</label>
+            <a class="btn" id="open-playground" href="../">Open in playground ↗</a>
+          </div>
+          <div id="editor"></div>
+        </div>
+        <div class="panel tables-panel">
+          <div class="panel-head"><h2>Tables used</h2><span class="hint">Every row wears its table's colour.</span></div>
+          <div id="strip"></div>
+        </div>
+        <section class="panel output-panel"><div id="output"></div></section>
+      </div>
+    </div>
+    <noscript><p class="pad">This lesson animates SQL with JavaScript — please enable it.</p></noscript>
+  </main>
+  <script type="application/json" id="lesson-data">{"n":49,"slug":"recursive-cte","sql":"WITH RECURSIVE chain(id, name, depth) AS (\n  SELECT id, name, 0\n  FROM employees WHERE manager_id IS NULL\n  UNION ALL\n  SELECT e.id, e.name, chain.depth + 1\n  FROM employees e\n  JOIN chain ON e.manager_id = chain.id\n)\nSELECT * FROM chain\nORDER BY depth, name;"}</script>
+  <script type="module" src="../js/lesson.js"></script>
+</body>
+</html>

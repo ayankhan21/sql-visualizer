@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SELECT * — every column · SQL lesson 2/50 — SQL Visualizer</title>
+  <meta name="description" content="The star is a shortcut for &quot;all columns&quot;. Watch the query's rows move, filter and join — SQL lesson 2 of 50 (Beginner)." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Crect x='6' y='8' width='9' height='5' rx='2' fill='%23fff'/%3E%3Crect x='17' y='13' width='9' height='5' rx='2' fill='%23fcd34d'/%3E%3Crect x='6' y='19' width='9' height='5' rx='2' fill='%2386efac'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="../css/app.css" />
+</head>
+<body class="lesson-page">
+  <header class="topbar">
+    <a class="brand" href="../"><span class="logo"><i></i><i></i><i></i></span> SQL Visualizer</a>
+    <nav><a href="./">📚 All lessons</a><a href="../">▶ Playground</a></nav>
+  </header>
+  <main class="app">
+    <div class="lesson">
+      <aside class="panel lesson-side">
+        <div class="crumbs"><span class="lvl beginner">Beginner</span><span>Lesson 2 of 50</span></div>
+        <div class="lesson-progress"><i style="width:4%"></i></div>
+        <h1>SELECT * — every column</h1>
+        <p class="muted">The star is a shortcut for &quot;all columns&quot;.</p>
+        <h2>The idea</h2>
+        <p><code>*</code> means "every column, in table order". It is handy for peeking at a table you have never seen.</p><p>Because nothing is being removed, the SELECT step has nothing to cut: rows go straight from the table to the result.</p>
+        <h2>What to watch</h2>
+        <ul><li>Six department rows slide out of the <b>departments</b> table and land in the result unchanged.</li></ul>
+        
+        <div class="callout warn"><b>Careful.</b> In real applications avoid <code>SELECT *</code>: it drags every column across the network and breaks when someone adds a column.</div>
+        <div class="callout"><b>Your turn.</b> The query is live — edit it and press <b>Run</b>. Colours tell you which table each cell came from. Use <b>Reset data</b> to undo any INSERT / UPDATE / DELETE.</div>
+        <nav class="lesson-nav">
+          <a href="01-select-columns"><small>← Previous</small>Picking columns with SELECT</a>
+          <a class="next" href="03-aliases"><small>Next →</small>Renaming columns with AS</a>
+        </nav>
+      </aside>
+
+      <div class="lesson-main">
+        <div class="panel editor-panel">
+          <div class="toolbar">
+            <button class="btn primary" id="btn-run" title="Ctrl/⌘ + Enter">▶ Run</button>
+            <button class="btn" id="btn-reset" title="Restore all tables, then replay">↺ Reset data &amp; replay</button>
+            <button class="btn" id="btn-restore" title="Put the lesson's original query back">Original query</button>
+            <span class="spacer"></span>
+            <label class="muted" style="display:flex;gap:6px;align-items:center;font-size:12.5px"><input type="checkbox" id="chk-all" /> show all tables</label>
+            <a class="btn" id="open-playground" href="../">Open in playground ↗</a>
+          </div>
+          <div id="editor"></div>
+        </div>
+        <div class="panel tables-panel">
+          <div class="panel-head"><h2>Tables used</h2><span class="hint">Every row wears its table's colour.</span></div>
+          <div id="strip"></div>
+        </div>
+        <section class="panel output-panel"><div id="output"></div></section>
+      </div>
+    </div>
+    <noscript><p class="pad">This lesson animates SQL with JavaScript — please enable it.</p></noscript>
+  </main>
+  <script type="application/json" id="lesson-data">{"n":2,"slug":"select-star","sql":"SELECT *\nFROM departments;"}</script>
+  <script type="module" src="../js/lesson.js"></script>
+</body>
+</html>

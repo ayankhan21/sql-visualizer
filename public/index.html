@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SQL Visualizer — watch queries move real rows</title>
+  <meta name="description" content="Learn SQL joins, filters and grouping by watching real table rows physically move, merge and fall away. 10 related tables, 50 interactive lessons." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Crect x='6' y='8' width='9' height='5' rx='2' fill='%23fff'/%3E%3Crect x='17' y='13' width='9' height='5' rx='2' fill='%23fcd34d'/%3E%3Crect x='6' y='19' width='9' height='5' rx='2' fill='%2386efac'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body class="home">
+  <header class="topbar">
+    <a class="brand" href="./"><span class="logo"><i></i><i></i><i></i></span> SQL Visualizer</a>
+    <nav>
+      <a href="lessons/" class="nav-lessons">📚 50 Lessons</a>
+      <button class="link-btn" id="btn-relations" title="How the tables connect">🔗 Relations</button>
+    </nav>
+  </header>
+
+  <main class="app">
+    <section class="top">
+      <div class="panel editor-panel">
+        <div class="toolbar">
+          <button class="btn primary" id="btn-run" title="Ctrl/⌘ + Enter">▶ Run query</button>
+          <select id="examples" class="select" aria-label="Examples"></select>
+          <span class="spacer"></span>
+          <button class="btn" id="btn-reset" title="Restore all 10 tables to their original data">↺ Reset</button>
+        </div>
+        <div id="editor"></div>
+      </div>
+
+      <div class="panel tables-panel">
+        <div class="panel-head">
+          <h2>Your database</h2>
+          <span class="chip-count" id="tcount"></span>
+          <span class="hint">Every row wears its table's colour. Changes live in memory only — Reset or refresh restores everything.</span>
+          <span class="spacer"></span>
+          <button class="btn small" id="btn-clear" title="Remove the row highlighting">Clear highlight</button>
+          <button class="btn small" id="btn-create">＋ Create table</button>
+        </div>
+        <div id="strip"></div>
+      </div>
+    </section>
+
+    <section class="panel output-panel">
+      <div id="output"></div>
+    </section>
+  </main>
+
+  <dialog id="relations" class="modal">
+    <h3>How the tables connect</h3>
+    <p class="muted">A foreign key is a column that stores the <b>id</b> of a row in another table. Joins follow these links.</p>
+    <ul class="rel-list"></ul>
+    <div class="modal-actions"><button class="btn" data-close>Close</button></div>
+  </dialog>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

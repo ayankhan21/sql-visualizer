@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Putting it all together · SQL lesson 50/50 — SQL Visualizer</title>
+  <meta name="description" content="CTEs + joins + grouping + window ranking in one report. Watch the query's rows move, filter and join — SQL lesson 50 of 50 (Advanced)." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Crect x='6' y='8' width='9' height='5' rx='2' fill='%23fff'/%3E%3Crect x='17' y='13' width='9' height='5' rx='2' fill='%23fcd34d'/%3E%3Crect x='6' y='19' width='9' height='5' rx='2' fill='%2386efac'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="../css/app.css" />
+</head>
+<body class="lesson-page">
+  <header class="topbar">
+    <a class="brand" href="../"><span class="logo"><i></i><i></i><i></i></span> SQL Visualizer</a>
+    <nav><a href="./">📚 All lessons</a><a href="../">▶ Playground</a></nav>
+  </header>
+  <main class="app">
+    <div class="lesson">
+      <aside class="panel lesson-side">
+        <div class="crumbs"><span class="lvl advanced">Advanced</span><span>Lesson 50 of 50</span></div>
+        <div class="lesson-progress"><i style="width:100%"></i></div>
+        <h1>Putting it all together</h1>
+        <p class="muted">CTEs + joins + grouping + window ranking in one report.</p>
+        <h2>The idea</h2>
+        <p>A realistic report: <i>who are our top spenders?</i></p><ol><li>CTE 1 totals every order.</li><li>CTE 2 joins customers → orders → totals and sums per customer.</li><li>The final query ranks customers with a window function and keeps the top eight.</li></ol><p>You now know every ingredient. Open the playground and answer your own questions!</p>
+        <h2>What to watch</h2>
+        <ul><li>A tour of the whole pipeline: join, rank, sort, limit.</li></ul>
+        <div class="callout tip"><b>Tip.</b> Challenge: rank customers <i>within each country</i> using <code>PARTITION BY country</code>.</div>
+        
+        <div class="callout"><b>Your turn.</b> The query is live — edit it and press <b>Run</b>. Colours tell you which table each cell came from. Use <b>Reset data</b> to undo any INSERT / UPDATE / DELETE.</div>
+        <nav class="lesson-nav">
+          <a href="49-recursive-cte"><small>← Previous</small>Recursive CTEs — walking a hierarchy</a>
+          <a class="next" href="../"><small>You finished! →</small>Open the playground</a>
+        </nav>
+      </aside>
+
+      <div class="lesson-main">
+        <div class="panel editor-panel">
+          <div class="toolbar">
+            <button class="btn primary" id="btn-run" title="Ctrl/⌘ + Enter">▶ Run</button>
+            <button class="btn" id="btn-reset" title="Restore all tables, then replay">↺ Reset data &amp; replay</button>
+            <button class="btn" id="btn-restore" title="Put the lesson's original query back">Original query</button>
+            <span class="spacer"></span>
+            <label class="muted" style="display:flex;gap:6px;align-items:center;font-size:12.5px"><input type="checkbox" id="chk-all" /> show all tables</label>
+            <a class="btn" id="open-playground" href="../">Open in playground ↗</a>
+          </div>
+          <div id="editor"></div>
+        </div>
+        <div class="panel tables-panel">
+          <div class="panel-head"><h2>Tables used</h2><span class="hint">Every row wears its table's colour.</span></div>
+          <div id="strip"></div>
+        </div>
+        <section class="panel output-panel"><div id="output"></div></section>
+      </div>
+    </div>
+    <noscript><p class="pad">This lesson animates SQL with JavaScript — please enable it.</p></noscript>
+  </main>
+  <script type="application/json" id="lesson-data">{"n":50,"slug":"capstone","sql":"WITH order_totals AS (\n  SELECT order_id, SUM(quantity * unit_price) AS total\n  FROM order_items\n  GROUP BY order_id\n),\ncustomer_spend AS (\n  SELECT c.id, c.name, c.country, SUM(t.total) AS spend\n  FROM customers c\n  JOIN orders o ON o.customer_id = c.id\n  JOIN order_totals t ON t.order_id = o.id\n  GROUP BY c.id, c.name, c.country\n)\nSELECT name, country, spend,\n       RANK() OVER (ORDER BY spend DESC) AS spend_rank\nFROM customer_spend\nORDER BY spend_rank\nLIMIT 8;"}</script>
+  <script type="module" src="../js/lesson.js"></script>
+</body>
+</html>

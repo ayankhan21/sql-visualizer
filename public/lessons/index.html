@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>50 SQL lessons — SQL Visualizer</title>
+  <meta name="description" content="50 animated SQL lessons from SELECT to window functions. Watch real table rows move, join and filter." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Crect x='6' y='8' width='9' height='5' rx='2' fill='%23fff'/%3E%3Crect x='17' y='13' width='9' height='5' rx='2' fill='%23fcd34d'/%3E%3Crect x='6' y='19' width='9' height='5' rx='2' fill='%2386efac'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="../css/app.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="../"><span class="logo"><i></i><i></i><i></i></span> SQL Visualizer</a>
+    <nav><a href="./">📚 All lessons</a><a href="../">▶ Playground</a></nav>
+  </header>
+  <main class="app">
+    <div class="hero"><h1>50 SQL lessons you can watch</h1><p>Every lesson runs a real query on a small shop database and animates the rows: they fly out of their tables, join, fall away when filtered, and settle into the result. Start at 1 or jump to what you need.</p></div>
+    <section class="lvl-block"><h2><span class="lvl beginner">Beginner</span> 16 lessons</h2><p>Read, filter, sort, summarise — and add your first rows.</p><div class="cards">
+      <a class="lcard beginner" href="01-select-columns"><span class="no">1</span><span><b>Picking columns with SELECT</b><small>Ask a table for just the columns you care about.</small></span></a>
+      <a class="lcard beginner" href="02-select-star"><span class="no">2</span><span><b>SELECT * — every column</b><small>The star is a shortcut for &quot;all columns&quot;.</small></span></a>
+      <a class="lcard beginner" href="03-aliases"><span class="no">3</span><span><b>Renaming columns with AS</b><small>Give result columns friendlier names.</small></span></a>
+      <a class="lcard beginner" href="04-where-basic"><span class="no">4</span><span><b>Filtering rows with WHERE</b><small>Keep only the rows that satisfy a condition.</small></span></a>
+      <a class="lcard beginner" href="05-where-and-or"><span class="no">5</span><span><b>Combining conditions: AND, OR</b><small>Build richer filters with AND, OR and parentheses.</small></span></a>
+      <a class="lcard beginner" href="06-order-by"><span class="no">6</span><span><b>Sorting with ORDER BY</b><small>Put the rows in a meaningful order.</small></span></a>
+      <a class="lcard beginner" href="07-limit-offset"><span class="no">7</span><span><b>Top-N with LIMIT and OFFSET</b><small>Take just a slice of the sorted rows.</small></span></a>
+      <a class="lcard beginner" href="08-distinct"><span class="no">8</span><span><b>Removing duplicates with DISTINCT</b><small>Each different value once.</small></span></a>
+      <a class="lcard beginner" href="09-like"><span class="no">9</span><span><b>Pattern matching with LIKE</b><small>Find text that looks like something.</small></span></a>
+      <a class="lcard beginner" href="10-in-between"><span class="no">10</span><span><b>IN and BETWEEN</b><small>Shorter ways to write common filters.</small></span></a>
+      <a class="lcard beginner" href="11-null"><span class="no">11</span><span><b>NULL — the missing value</b><small>NULL means &quot;unknown&quot;, and it behaves strangely on purpose.</small></span></a>
+      <a class="lcard beginner" href="12-expressions"><span class="no">12</span><span><b>Calculated columns</b><small>Compute new values on the fly.</small></span></a>
+      <a class="lcard beginner" href="13-count"><span class="no">13</span><span><b>Counting rows with COUNT</b><small>Collapse many rows into one number.</small></span></a>
+      <a class="lcard beginner" href="14-sum-avg"><span class="no">14</span><span><b>SUM, AVG, MIN and MAX</b><small>More ways to summarise a column.</small></span></a>
+      <a class="lcard beginner" href="15-group-by"><span class="no">15</span><span><b>Grouping with GROUP BY</b><small>One summary row per group.</small></span></a>
+      <a class="lcard beginner" href="16-insert"><span class="no">16</span><span><b>Adding rows with INSERT</b><small>Create new rows in a table.</small></span></a>
+    </div></section>
+<section class="lvl-block"><h2><span class="lvl intermediate">Intermediate</span> 18 lessons</h2><p>Joins in every flavour, grouping, changing data and the real order of a query.</p><div class="cards">
+      <a class="lcard intermediate" href="17-update"><span class="no">17</span><span><b>Changing rows with UPDATE</b><small>Modify existing values.</small></span></a>
+      <a class="lcard intermediate" href="18-delete"><span class="no">18</span><span><b>Removing rows with DELETE</b><small>Take rows out of a table.</small></span></a>
+      <a class="lcard intermediate" href="19-alter-table"><span class="no">19</span><span><b>Changing structure with ALTER TABLE</b><small>Add, drop or rename columns.</small></span></a>
+      <a class="lcard intermediate" href="20-inner-join"><span class="no">20</span><span><b>INNER JOIN — connecting tables</b><small>Follow a foreign key to combine two tables.</small></span></a>
+      <a class="lcard intermediate" href="21-join-where"><span class="no">21</span><span><b>Filtering joined rows</b><small>Join first, filter after.</small></span></a>
+      <a class="lcard intermediate" href="22-left-join"><span class="no">22</span><span><b>LEFT JOIN — keep everything on the left</b><small>Do not lose rows that have no partner.</small></span></a>
+      <a class="lcard intermediate" href="23-anti-join"><span class="no">23</span><span><b>Finding what is missing (anti-join)</b><small>LEFT JOIN + IS NULL = &quot;rows with no match&quot;.</small></span></a>
+      <a class="lcard intermediate" href="24-right-join"><span class="no">24</span><span><b>RIGHT JOIN — keep everything on the right</b><small>Mirror image of LEFT JOIN.</small></span></a>
+      <a class="lcard intermediate" href="25-full-join"><span class="no">25</span><span><b>FULL JOIN — keep everything</b><small>Keep unmatched rows from both sides.</small></span></a>
+      <a class="lcard intermediate" href="26-cross-join"><span class="no">26</span><span><b>CROSS JOIN — every combination</b><small>Pair every row with every row.</small></span></a>
+      <a class="lcard intermediate" href="27-self-join"><span class="no">27</span><span><b>Self join — a table joined to itself</b><small>Employees and their managers live in the same table.</small></span></a>
+      <a class="lcard intermediate" href="28-three-table-join"><span class="no">28</span><span><b>Joining three tables</b><small>Chain joins: each ON links the next table.</small></span></a>
+      <a class="lcard intermediate" href="29-four-table-join"><span class="no">29</span><span><b>Joining four tables</b><small>Follow the chain order_items → orders / products → categories.</small></span></a>
+      <a class="lcard intermediate" href="30-join-group"><span class="no">30</span><span><b>JOIN + GROUP BY</b><small>Count related rows per entity.</small></span></a>
+      <a class="lcard intermediate" href="31-having"><span class="no">31</span><span><b>Filtering groups with HAVING</b><small>WHERE filters rows, HAVING filters groups.</small></span></a>
+      <a class="lcard intermediate" href="32-execution-order"><span class="no">32</span><span><b>The real order of a query</b><small>You write SELECT first, but SQL runs it almost last.</small></span></a>
+      <a class="lcard intermediate" href="33-case-when"><span class="no">33</span><span><b>CASE WHEN — if/else inside SQL</b><small>Turn values into categories.</small></span></a>
+      <a class="lcard intermediate" href="34-functions-coalesce"><span class="no">34</span><span><b>Handy functions &amp; COALESCE</b><small>Clean up and default values.</small></span></a>
+    </div></section>
+<section class="lvl-block"><h2><span class="lvl advanced">Advanced</span> 16 lessons</h2><p>Subqueries, CTEs, set operations, window functions and recursion.</p><div class="cards">
+      <a class="lcard advanced" href="35-subquery-in"><span class="no">35</span><span><b>Subqueries with IN</b><small>A query inside a query.</small></span></a>
+      <a class="lcard advanced" href="36-scalar-subquery"><span class="no">36</span><span><b>Scalar subqueries</b><small>A subquery that returns one value.</small></span></a>
+      <a class="lcard advanced" href="37-correlated-subquery"><span class="no">37</span><span><b>Correlated subqueries</b><small>The inner query depends on the current outer row.</small></span></a>
+      <a class="lcard advanced" href="38-exists"><span class="no">38</span><span><b>EXISTS and NOT EXISTS</b><small>Ask &quot;is there at least one…?&quot;</small></span></a>
+      <a class="lcard advanced" href="39-derived-table"><span class="no">39</span><span><b>Derived tables (subquery in FROM)</b><small>Use a query result as if it were a table.</small></span></a>
+      <a class="lcard advanced" href="40-cte"><span class="no">40</span><span><b>Common Table Expressions (WITH)</b><small>Name a subquery to make queries readable.</small></span></a>
+      <a class="lcard advanced" href="41-multi-cte"><span class="no">41</span><span><b>Chaining several CTEs</b><small>Build the answer in layers.</small></span></a>
+      <a class="lcard advanced" href="42-union"><span class="no">42</span><span><b>UNION and UNION ALL</b><small>Stack the results of two queries.</small></span></a>
+      <a class="lcard advanced" href="43-intersect-except"><span class="no">43</span><span><b>INTERSECT and EXCEPT</b><small>Rows in both — or only in the first.</small></span></a>
+      <a class="lcard advanced" href="44-window-row-number"><span class="no">44</span><span><b>Window functions: ROW_NUMBER</b><small>Calculate across rows without collapsing them.</small></span></a>
+      <a class="lcard advanced" href="45-window-rank"><span class="no">45</span><span><b>RANK vs DENSE_RANK</b><small>What should happen when values tie?</small></span></a>
+      <a class="lcard advanced" href="46-window-running-total"><span class="no">46</span><span><b>Running totals with SUM() OVER</b><small>A total that grows row by row.</small></span></a>
+      <a class="lcard advanced" href="47-window-lag-lead"><span class="no">47</span><span><b>LAG and LEAD — peek at neighbours</b><small>Compare a row with the one before or after it.</small></span></a>
+      <a class="lcard advanced" href="48-window-moving-average"><span class="no">48</span><span><b>Moving averages with window frames</b><small>Limit the window to nearby rows.</small></span></a>
+      <a class="lcard advanced" href="49-recursive-cte"><span class="no">49</span><span><b>Recursive CTEs — walking a hierarchy</b><small>Follow manager → report → report… to any depth.</small></span></a>
+      <a class="lcard advanced" href="50-capstone"><span class="no">50</span><span><b>Putting it all together</b><small>CTEs + joins + grouping + window ranking in one report.</small></span></a>
+    </div></section>
+  </main>
+</body>
+</html>

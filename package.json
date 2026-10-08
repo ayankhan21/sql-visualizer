@@ -1,0 +1,16 @@
+{
+  "name": "sql-visualizer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Learn SQL by watching table rows physically move, join and filter.",
+  "scripts": {
+    "build:lessons": "node scripts/build-lessons.mjs",
+    "test": "node --test test/*.test.mjs",
+    "dev": "wrangler dev",
+    "deploy": "npm run build:lessons && wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.148.0"
+  }
+}

@@ -25,6 +25,10 @@
           <select id="examples" class="select" aria-label="Examples"></select>
           <span class="kbd-hint">or press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to run</span>
           <span class="spacer"></span>
+          <div class="hist">
+            <button class="icon-btn" id="btn-history" title="Recent queries" aria-haspopup="true" aria-expanded="false" aria-label="Recent queries">🕒</button>
+            <ul class="menu" id="history-menu" role="menu" hidden></ul>
+          </div>
           <button class="btn" id="btn-reset" title="Restore all 10 tables to their original data">↺ Reset</button>
         </div>
         <div id="editor"></div>

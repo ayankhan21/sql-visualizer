@@ -12,6 +12,7 @@ Learn SQL by **watching real table rows move**. Rows fly out of their tables, me
   - **Table**: the classic result grid. Click a row to see which source rows it came from.
   - **Analyze**: each clause numbered by when it really runs, row counts at every step, and notes on what to notice.
 - **10 pre-populated tables** with foreign keys (customers, orders, order_items, products, categories, suppliers, employees, departments, reviews, shipments). Each table has its own colour, and its rows and cells keep it everywhere. Every table has at most 50 rows.
+- **Query history**: the clock button beside Reset lists your last 5 successful queries (kept in `sessionStorage`, so a hard refresh keeps them and closing the tab clears them). Picking one fills the editor without running it.
 - **Editable data**: INSERT, UPDATE, DELETE and ALTER work on the tables. Nothing is saved, so **Reset** or a hard refresh restores the original data.
 - **One extra table**: create it with `CREATE TABLE` or the "Create table" form (11 tables maximum).
 - **50 lessons** (16 beginner, 18 intermediate, 16 advanced) as individual static pages. Each auto-plays its query, and you can edit and re-run it.

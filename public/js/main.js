@@ -6,6 +6,7 @@ import { Workbench } from './ui/workbench.js';
 import { TableBuilder } from './ui/builder.js';
 import { tc } from './ui/colors.js';
 import { esc } from './sql/format.js';
+import { loadHistory, addHistory } from './ui/history.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -59,11 +60,36 @@ function updateCount() {
   $('#btn-create').textContent = db.customTable() ? '✎ Your table' : '＋ Create table';
 }
 
-function run() {
-  wb.run(editor.value);
+function run(record = true) {
+  if (wb.run(editor.value) && record) renderHistory(addHistory(editor.value));
 }
 
-$('#btn-run').addEventListener('click', run);
+// ---- query history (clock button): fills the editor, never runs by itself
+const histBtn = $('#btn-history');
+const histMenu = $('#history-menu');
+function renderHistory(items = loadHistory()) {
+  histMenu.innerHTML = items.length
+    ? items.map((q, i) => `<li><button role="menuitem" data-i="${i}" title="${esc(q)}">${esc(q.replace(/\s+/g, ' '))}</button></li>`).join('')
+    : '<li class="empty">No queries yet — run one and it shows up here.</li>';
+  histMenu._items = items;
+}
+function toggleHistory(open) {
+  histMenu.hidden = !open;
+  histBtn.setAttribute('aria-expanded', String(open));
+}
+histBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleHistory(histMenu.hidden); });
+histMenu.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-i]');
+  if (!b) return;
+  editor.value = histMenu._items[Number(b.dataset.i)];
+  toggleHistory(false);
+  editor.focus();
+});
+document.addEventListener('click', (e) => { if (!e.target.closest('.hist')) toggleHistory(false); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleHistory(false); });
+renderHistory();
+
+$('#btn-run').addEventListener('click', () => run());
 $('#btn-reset').addEventListener('click', () => {
   wb.reset();
   editor.value = DEFAULT_SQL;
@@ -97,4 +123,4 @@ const shared = new URLSearchParams(location.search).get('q'); // "Open in playgr
 if (shared) editor.value = shared;
 
 updateCount();
-setTimeout(run, 350); // show the animation right away
+setTimeout(() => run(false), 350); // show the animation right away (not recorded in history)

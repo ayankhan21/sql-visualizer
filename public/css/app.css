@@ -98,6 +98,13 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .icon-btn:disabled { opacity: .4; cursor: not-allowed; }
 .select { padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); cursor: pointer; max-width: 240px; }
 
+/* ------------------------------------------------ query history */
+.hist { position: relative; }
+.menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; list-style: none; margin: 0; padding: 4px; width: min(520px, 86vw); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 40px rgba(10, 14, 35, .28); }
+.menu button { display: block; width: 100%; text-align: left; padding: 7px 10px; border: 0; background: none; border-radius: 8px; cursor: pointer; font: 12.5px var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.menu button:hover, .menu button:focus-visible { background: var(--accent-soft); color: var(--accent); outline: 0; }
+.menu .empty { padding: 10px 12px; color: var(--muted); font-size: 12.5px; }
+
 /* ------------------------------------------------ editor */
 .kbd-hint { font-size: 12px; color: var(--muted); }
 kbd { font: 600 11px var(--mono); padding: 1px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; background: var(--panel-2); color: var(--ink); }

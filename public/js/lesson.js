@@ -20,7 +20,7 @@ function usedTables(sql) {
 let only = usedTables(cfg.sql);
 const strip = new TableStrip($('#strip'), db, { only });
 const editor = new Editor($('#editor'), { db, value: cfg.sql, onRun: () => run(), minRows: 3, maxRows: 14 });
-const wb = new Workbench({ db, strip, editor, outEl: $('#output'), defaultTab: 'physical', onChange: () => editor.paint() });
+const wb = new Workbench({ db, strip, editor, outEl: $('#output'), runBtn: $('#btn-run'), defaultTab: 'physical', onChange: () => editor.paint() });
 
 function run() {
   if (!$('#chk-all').checked) {

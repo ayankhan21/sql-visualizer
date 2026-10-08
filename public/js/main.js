@@ -51,7 +51,7 @@ const strip = new TableStrip($('#strip'), db, { reorder: true });
 const editor = new Editor($('#editor'), { db, value: DEFAULT_SQL, onRun: () => run(), minRows: 3, maxRows: 7, placeholder: 'Write SQL here…  (Ctrl + Enter to run)' });
 const builder = new TableBuilder({ db, onChange: () => { strip.render(); editor.paint(); updateCount(); } });
 
-const wb = new Workbench({ db, strip, editor, outEl: $('#output'), defaultTab: 'physical', onChange: () => { updateCount(); editor.paint(); } });
+const wb = new Workbench({ db, strip, editor, outEl: $('#output'), runBtn: $('#btn-run'), defaultTab: 'physical', onChange: () => { updateCount(); editor.paint(); } });
 
 function updateCount() {
   const n = db.list().length;

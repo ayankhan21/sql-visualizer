@@ -6,7 +6,8 @@ import { StagePlayer } from './stage.js';
 import { renderTable, renderAnalyze } from './results.js';
 
 export class Workbench {
-  constructor({ db, strip, editor = null, outEl, defaultTab = 'physical', onChange = null }) {
+  constructor({ db, strip, editor = null, outEl, defaultTab = 'physical', onChange = null, runBtn = null }) {
+    this.runBtn = runBtn;
     this.db = db;
     this.strip = strip;
     this.editor = editor;
@@ -48,6 +49,7 @@ export class Workbench {
       srcRect: (k) => this.strip.srcRect(k),
       onFrame: (frame) => this.strip.highlight(new Set(frame.chips.flatMap((c) => c.h || []))),
       onEnd: () => this.flushStrip(),
+      onPlayState: (on) => this.setBusy(on),
     });
     this.out.querySelector('.player').hidden = true;
     renderTable(this.panes.table, null);
@@ -61,6 +63,15 @@ export class Workbench {
       if (b) { this.cur = Number(b.dataset.i); this.show(); }
     });
     this.setTab(this.tab, true);
+  }
+
+  // Run button shows a spinner while the query's animation is playing
+  setBusy(on) {
+    if (!this.runBtn) return;
+    this.runBtn.classList.toggle('loading', on);
+    this.runBtn.setAttribute('aria-busy', on ? 'true' : 'false');
+    const label = this.runBtn.querySelector('.lbl');
+    if (label) label.textContent = on ? 'Running…' : this.runBtn.dataset.label;
   }
 
   setTab(tab, silent = false) {
@@ -95,6 +106,7 @@ export class Workbench {
   run(sql) {
     this.flushStrip();
     this.player.pause();
+    this.setBusy(false);
     let results;
     try {
       results = this.db.exec(sql);
@@ -151,6 +163,7 @@ export class Workbench {
 
   reset() {
     this.player.reset();
+    this.setBusy(false);
     this.pendingStrip = null;
     this.db.reset();
     this.strip.clearOrder();

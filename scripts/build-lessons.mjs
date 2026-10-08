@@ -60,7 +60,7 @@ function page(i) {
       <div class="lesson-main">
         <div class="panel editor-panel">
           <div class="toolbar">
-            <button class="btn primary" id="btn-run" title="Ctrl/⌘ + Enter">▶ Run</button>
+            <button class="btn primary" id="btn-run" title="Ctrl + Enter" data-label="Run"><span class="ico">▶</span><span class="lbl">Run</span></button>
             <button class="btn" id="btn-reset" title="Restore all tables, then replay">↺ Reset data &amp; replay</button>
             <button class="btn" id="btn-restore" title="Put the lesson's original query back">Original query</button>
             <span class="spacer"></span>

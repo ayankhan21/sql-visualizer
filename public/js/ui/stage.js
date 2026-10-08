@@ -136,6 +136,7 @@ export class StagePlayer {
   setPlayIcon(playing) {
     this.playBtn.textContent = playing ? '⏸' : '▶';
     this.playBtn.title = playing ? 'Pause' : 'Play';
+    if (this.opts.onPlayState) this.opts.onPlayState(playing);
   }
 
   renderSteps() {

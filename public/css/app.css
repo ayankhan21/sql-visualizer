@@ -86,6 +86,9 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .btn:active { transform: translateY(1px); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn.primary:hover { background: var(--accent-2); }
+.btn.loading { opacity: .92; cursor: progress; }
+.btn.loading .ico { width: 13px; height: 13px; font-size: 0; border: 2px solid rgba(255, 255, 255, .45); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .btn.small { padding: 4px 10px; font-size: 12px; }
 .btn.danger { color: var(--danger); border-color: var(--danger); }
 .btn:disabled { opacity: .45; cursor: not-allowed; }

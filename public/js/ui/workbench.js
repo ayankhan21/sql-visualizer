@@ -16,6 +16,7 @@ export class Workbench {
     this.results = [];
     this.cur = 0;
     this.pendingStrip = null;
+    this.loaded = null;
     this.onChange = onChange;
     this.build();
   }
@@ -79,7 +80,9 @@ export class Workbench {
     this.out.querySelectorAll('[data-tab]').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
     Object.entries(this.panes).forEach(([k, p]) => { p.hidden = k !== tab; });
     if (tab !== 'physical') { this.player.pause(); this.flushStrip(); }
-    if (!silent && tab === 'physical' && this.results.length) this.playCurrent();
+    // only animate if this result hasn't been shown in the player yet (e.g. it ran while another tab was open);
+    // coming back to a result that already played leaves the player exactly where it was
+    if (!silent && tab === 'physical' && this.results.length && this.results[this.cur] !== this.loaded) this.playCurrent();
   }
 
   flushStrip() {
@@ -148,6 +151,7 @@ export class Workbench {
   playCurrent() {
     const r = this.results[this.cur];
     if (!r) return;
+    this.loaded = r;
     this.player.load(r.trace.frames, { autoplay: true });
     if (!r.trace.frames.length) this.flushStrip();
   }
@@ -163,6 +167,7 @@ export class Workbench {
 
   reset() {
     this.player.reset();
+    this.loaded = null;
     this.setBusy(false);
     this.pendingStrip = null;
     this.db.reset();

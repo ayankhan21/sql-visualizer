@@ -96,6 +96,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .select { padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); cursor: pointer; max-width: 240px; }
 
 /* ------------------------------------------------ editor */
+.kbd-hint { font-size: 12px; color: var(--muted); }
+kbd { font: 600 11px var(--mono); padding: 1px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; background: var(--panel-2); color: var(--ink); }
 .editor-panel { padding: 10px 12px 12px; }
 .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
 .ed { --rows: 4; position: relative; height: calc(var(--rows) * 1.55em + 20px); background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; font: 13.5px/1.55 var(--mono); overflow: hidden; }

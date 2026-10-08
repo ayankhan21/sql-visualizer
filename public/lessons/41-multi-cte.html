@@ -23,7 +23,7 @@
         <h2>The idea</h2>
         <p>Later CTEs can read earlier ones. Layer 1: totals per order. Layer 2: spending per customer. Final query: the top five. Each layer is small and testable on its own.</p>
         <h2>What to watch</h2>
-        <ul><li>Only the final query's pipeline is animated; Analyze lists both CTEs with their row counts.</li></ul>
+        <ul><li>Two CTEs play one after another. The second reads the first: its join pulls the rows straight out of the first CTE's dashed box.</li><li>Each CTE hands a finished temporary table to whoever needs it. The Analyze tab lists every step, with CTE steps indented.</li></ul>
         
         
         <div class="callout"><b>Your turn.</b> The query is live — edit it and press <b>Run</b>. Colours tell you which table each cell came from. Use <b>Reset data</b> to undo any INSERT / UPDATE / DELETE.</div>

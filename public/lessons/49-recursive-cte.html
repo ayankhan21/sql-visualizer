@@ -23,7 +23,7 @@
         <h2>The idea</h2>
         <p>A recursive CTE has two parts joined by <code>UNION ALL</code>: an <b>anchor</b> (start at the CEO, depth 0) and a <b>recursive step</b> that joins the previous round's rows to find their direct reports (depth + 1). It repeats until a round finds nothing new.</p><p>This is how you query org charts, category trees and folder structures.</p>
         <h2>What to watch</h2>
-        <ul><li>The result lists the CEO at depth 0, their reports at depth 1, and so on down the tree.</li></ul>
+        <ul><li><b>Round 0</b>: the anchor query finds the CEO (depth 0).</li><li>Each later round joins the previous round's rows with <b>employees</b> to find the next level down; new rows appear on the right, then join the "so far" list.</li><li>When a round finds nothing new, the recursion <b>stops</b> and the result is handed to the main query.</li></ul>
         
         <div class="callout warn"><b>Careful.</b> Always make sure the recursion can end — a cycle in the data would loop forever (the playground stops after 1000 rounds).</div>
         <div class="callout"><b>Your turn.</b> The query is live — edit it and press <b>Run</b>. Colours tell you which table each cell came from. Use <b>Reset data</b> to undo any INSERT / UPDATE / DELETE.</div>

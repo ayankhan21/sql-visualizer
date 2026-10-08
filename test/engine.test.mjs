@@ -149,3 +149,44 @@ test('trace: FROM chips fly from table rows, joins merge parents, WHERE drops ro
   assert.ok(r.trace.frames[3].chips.length < joined.chips.length);
   assert.ok(r.trace.frames[0].chips.every((c) => c.src && c.src.startsWith('customers#')));
 });
+
+test('trace: window functions show partition, order, walk-through and compute frames', () => {
+  const db = new Database();
+  const r = run(db, 'SELECT id, quantity, AVG(quantity) OVER (ORDER BY id ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS m FROM order_items WHERE id <= 6');
+  const w = r.trace.frames.filter((f) => f.stage === 'WINDOW');
+  assert.deepEqual(w.map((f) => f.short), ['WINDOW ORDER', 'AVG · row 1', 'AVG · row 2', 'AVG · row 3', 'COMPUTE']);
+  const row2 = w[2];
+  assert.equal(row2.chips.filter((c) => c.flag === 'cur').length, 1);
+  assert.equal(row2.chips.filter((c) => c.flag === 'frame').length, 1, 'row 2 frame = itself + 1 before');
+  assert.ok(row2.chips.some((c) => c.vals.at(-1) === '…'), 'values not yet computed are pending');
+  assert.ok(w.at(-1).chips.every((c) => c.vals.at(-1) !== '…'));
+  const p = run(db, 'SELECT name, RANK() OVER (PARTITION BY dept_id ORDER BY salary DESC) FROM employees');
+  assert.equal(p.trace.frames.filter((f) => f.stage === 'WINDOW')[0].lanes.length, 5, 'one lane per partition');
+  const lead = run(db, 'SELECT price, LAG(price) OVER (ORDER BY price) a, LEAD(price) OVER (ORDER BY price) b FROM products WHERE category_id = 1');
+  const lw = lead.trace.frames.filter((f) => f.stage === 'WINDOW');
+  assert.match(lw.find((f) => f.short === 'LEAD · row 5').caption, /ahead to row 6/, 'LEAD reads its own neighbour, not LAG\'s');
+});
+
+test('trace: CTE plays its own pipeline, parks on a shelf, then feeds the main query', () => {
+  const db = new Database();
+  const r = run(db, 'WITH t AS (SELECT order_id, SUM(quantity) AS q FROM order_items GROUP BY order_id) SELECT o.id, t.q FROM orders o JOIN t ON t.order_id = o.id');
+  const f = r.trace.frames;
+  const ready = f.findIndex((x) => x.short === 't ✔');
+  assert.ok(ready > 0 && f.slice(0, ready).every((x) => x.scope === 'CTE t'));
+  assert.ok(f[ready].lanes[0].shelf);
+  const consume = f.findIndex((x, i) => i > ready && x.chips.some((c) => c.from && c.from.some((k) => k.startsWith('t/'))));
+  assert.ok(consume > ready);
+  for (let i = ready + 1; i < consume; i++) assert.ok(f[i].lanes.some((l) => l.shelf), `shelf visible while waiting (frame ${i})`);
+  assert.ok(!f[consume + 1].lanes.some((l) => l.shelf), 'shelf is gone once consumed');
+  for (const x of f) { const k = x.chips.map((c) => c.key); assert.equal(new Set(k).size, k.length); }
+  assert.ok(r.trace.steps.some((s) => s.scope === 'CTE t'), 'inner steps are tagged for Analyze');
+});
+
+test('trace: derived tables and recursive CTE rounds', () => {
+  const db = new Database();
+  const d = run(db, 'SELECT d.name, t.a FROM (SELECT dept_id, AVG(salary) AS a FROM employees GROUP BY dept_id) t JOIN departments d ON d.id = t.dept_id');
+  assert.ok(d.trace.frames.some((f) => f.scope === 'Subquery t'));
+  const rec = run(db, 'WITH RECURSIVE c(id, d) AS (SELECT id, 0 FROM employees WHERE manager_id IS NULL UNION ALL SELECT e.id, c.d + 1 FROM employees e JOIN c ON e.manager_id = c.id) SELECT * FROM c');
+  const rounds = rec.trace.frames.filter((f) => f.stage === 'RECURSION').map((f) => f.short);
+  assert.deepEqual(rounds, ['c ▸ round 0', 'c ▸ round 1', 'c ▸ round 2', 'c ▸ round 3', 'c ▸ stop']);
+});

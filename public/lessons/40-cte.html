@@ -23,7 +23,7 @@
         <h2>The idea</h2>
         <p><code>WITH name AS (query)</code> defines a temporary named result — a <b>CTE</b> — that the main query can use like a table. It reads top-down like a recipe: first compute the totals, then use them.</p>
         <h2>What to watch</h2>
-        <ul><li>The CTE is computed first (see the WITH row in Analyze), then joins to orders.</li></ul>
+        <ul><li>The CTE runs <b>first</b>, as its own pipeline (tagged <b>CTE order_totals</b>): read order_items, bucket by order, collapse to one total per order.</li><li>The finished CTE is parked in a <b>dashed box</b> — a temporary named table.</li><li>The main query then reads <b>orders</b>, and the order_totals rows fly out of the dashed box into the join.</li></ul>
         
         
         <div class="callout"><b>Your turn.</b> The query is live — edit it and press <b>Run</b>. Colours tell you which table each cell came from. Use <b>Reset data</b> to undo any INSERT / UPDATE / DELETE.</div>

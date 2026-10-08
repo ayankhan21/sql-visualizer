@@ -23,7 +23,7 @@
         <h2>The idea</h2>
         <p>GROUP BY squashes rows. A <b>window function</b> adds a computed column but <b>keeps every row</b>. <code>OVER (ORDER BY salary DESC)</code> defines the "window" — here the whole table sorted by salary — and <code>ROW_NUMBER()</code> numbers the rows 1, 2, 3…</p>
         <h2>What to watch</h2>
-        <ul><li>The rows stay put; a new <code>pos</code> cell appears on each.</li></ul>
+        <ul><li>With no PARTITION BY there is one window: the whole table.</li><li><b>WINDOW ORDER</b> sorts the rows for the function, then <b>COMPUTE</b> fills the new <code>ROW_NUMBER()</code> column (grey) — every row is still there.</li><li>In the final SELECT the rows return to their original order, each keeping its number.</li></ul>
         
         
         <div class="callout"><b>Your turn.</b> The query is live — edit it and press <b>Run</b>. Colours tell you which table each cell came from. Use <b>Reset data</b> to undo any INSERT / UPDATE / DELETE.</div>

@@ -23,7 +23,7 @@
         <h2>The idea</h2>
         <p><code>LAG(x)</code> looks one row <b>back</b> in the window order; <code>LEAD(x)</code> one row <b>forward</b>. The first/last rows have no neighbour, so they get NULL. Handy for "change since last period".</p>
         <h2>What to watch</h2>
-        <ul><li>The cheapest product has NULL for next_cheaper; the priciest has NULL for next_pricier.</li></ul>
+        <ul><li><b>LAG</b>: the blue row copies a value from the green row one step back. For the first row there is nothing there, so the result is NULL.</li><li><b>LEAD</b>: the same, looking one row ahead — the last row gets NULL.</li></ul>
         
         
         <div class="callout"><b>Your turn.</b> The query is live — edit it and press <b>Run</b>. Colours tell you which table each cell came from. Use <b>Reset data</b> to undo any INSERT / UPDATE / DELETE.</div>

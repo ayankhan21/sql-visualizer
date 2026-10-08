@@ -3,7 +3,7 @@ import { SqlError } from './tokenizer.js';
 import { parseSql } from './parser.js';
 import { SEED, MAX_ROWS, MAX_TABLES } from './seed.js';
 import { execQuery, makeCtx, evalConst, evalRow, relCols, num, truth } from './exec.js';
-import { Tracer, MAX_CHIPS, capped, laneCols } from './trace.js';
+import { Tracer, MAX_CHIPS, capped, laneCols, applyShelves } from './trace.js';
 import { fmtNum } from './format.js';
 
 const INT_T = new Set(['INT', 'INTEGER', 'BIGINT', 'SMALLINT']);
@@ -132,6 +132,7 @@ export class Database {
       chips: capped(res.rows).map((r) => ({ key: r.p[0], lane: 0, vals: r.v, h: r.h })),
       hidden: Math.max(0, n - MAX_CHIPS), in: n, out: n,
     });
+    applyShelves(T);
     const body = st.query.body;
     const clauses = body.type === 'select' ? body.clauses.map((c) => ({ k: c.k, s: c.s - st.start, e: c.e - st.start })) : [];
     const joins = body.type === 'select' ? body.joins.map((j) => ({ s: j.s - st.start, e: j.e - st.start })) : [];

@@ -23,7 +23,7 @@
         <h2>The idea</h2>
         <p>A realistic report: <i>who are our top spenders?</i></p><ol><li>CTE 1 totals every order.</li><li>CTE 2 joins customers → orders → totals and sums per customer.</li><li>The final query ranks customers with a window function and keeps the top eight.</li></ol><p>You now know every ingredient. Open the playground and answer your own questions!</p>
         <h2>What to watch</h2>
-        <ul><li>A tour of the whole pipeline: join, rank, sort, limit.</li></ul>
+        <ul><li>Two CTEs build up the totals in layers, each parked in a dashed box until the next step needs it.</li><li>The final query then ranks with a window function (partition → order → compute), sorts and limits.</li></ul>
         <div class="callout tip"><b>Tip.</b> Challenge: rank customers <i>within each country</i> using <code>PARTITION BY country</code>.</div>
         
         <div class="callout"><b>Your turn.</b> The query is live — edit it and press <b>Run</b>. Colours tell you which table each cell came from. Use <b>Reset data</b> to undo any INSERT / UPDATE / DELETE.</div>

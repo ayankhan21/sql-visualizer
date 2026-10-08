@@ -4,6 +4,8 @@ import { SqlError } from './tokenizer.js';
 import { fmt, fmtNum } from './format.js';
 import { MAX_CHIPS, rowKey, capped, relChips, laneCols } from './trace.js';
 
+const PENDING = '…'; // shown in a window column before that value has been computed
+
 const MAX_ROWS = 20000;
 const AGG = new Set(['COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'GROUP_CONCAT', 'STRING_AGG']);
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
@@ -356,7 +358,7 @@ function sortIdx(n, keyRows, specs) {
 }
 
 // ---------------------------------------------------------------- window functions
-function computeWindows(wins, envs) {
+function computeWindows(wins, envs, rec = null) {
   const map = new Map();
   for (const w of wins) {
     if (map.has(w)) continue;
@@ -375,6 +377,8 @@ function computeWindows(wins, envs) {
       const okeys = order.map((p) => keyRows[p]);
       const same = (a, b) => okeys[a].every((x, k) => (isNull(x) && isNull(okeys[b][k])) || cmpSql(x, okeys[b][k]) === 0);
       const len = sorted.length;
+      const rpart = rec ? { sorted, okeys, per: new Array(len).fill(null) } : null;
+      if (rpart) { const l = rec.get(w); if (l) l.push(rpart); else rec.set(w, [rpart]); }
       const peerStart = (p) => { while (p > 0 && same(p, p - 1)) p--; return p; };
       const peerEnd = (p) => { while (p < len - 1 && same(p, p + 1)) p++; return p; };
       const argAt = (k, p) => ev(w.args[k], envs[sorted[p]]);
@@ -396,6 +400,7 @@ function computeWindows(wins, envs) {
           case 'LAG': case 'LEAD': {
             const off = w.args[1] ? num(ev(w.args[1], envs[gi])) : 1;
             const t = w.name === 'LAG' ? p - off : p + off;
+            if (rpart) rpart.per[p] = { t: t >= 0 && t < len ? t : null, off };
             res[gi] = t >= 0 && t < len ? argAt(0, t) : (w.args[2] ? ev(w.args[2], envs[gi]) : null);
             break;
           }
@@ -413,6 +418,7 @@ function computeWindows(wins, envs) {
               lo = b(f.start, true); hi = b(f.end, false);
             } else if (spec.orderBy.length) hi = peerEnd(p);
             lo = Math.max(lo, 0); hi = Math.min(hi, len - 1);
+            if (rpart) rpart.per[p] = { lo, hi };
             if (w.name === 'FIRST_VALUE') res[gi] = lo <= hi ? argAt(0, lo) : null;
             else if (w.name === 'LAST_VALUE') res[gi] = lo <= hi ? argAt(0, hi) : null;
             else if (AGG.has(w.name)) {
@@ -444,7 +450,7 @@ function sourceRel(node, st) {
     return {
       kind: 'cte',
       cols: cte.cols.map((c) => ({ tbl: label, name: c.name, base: c.base || null })),
-      rows: cte.rows.map((r, i) => ({ v: r.v, p: [`${label}:${i}`], h: r.h || [] })),
+      rows: cte.rows.map((r, i) => ({ v: r.v, p: [`${label}:${i}`], h: r.h || [], ck: r.ck })),
     };
   }
   const t = st.ctx.db.getTable(node.name);
@@ -465,11 +471,11 @@ function evalSimple(node, st) {
   const label = node.alias;
   if (st.aliases.has(label.toLowerCase())) throw new SqlError(`"${label}" appears twice in FROM. Use a different alias.`);
   st.aliases.add(label.toLowerCase());
-  const res = execQuery(node.query, st.ctx, st.outer, null);
+  const res = (st.derived && st.derived.get(node)) || execQuery(node.query, st.ctx, st.outer, null);
   return {
     kind: 'derived',
     cols: res.cols.map((c) => ({ tbl: label, name: c.name, base: c.base || null })),
-    rows: res.rows.map((r, i) => ({ v: r.v, p: [`${label}:${i}`], h: r.h || [] })),
+    rows: res.rows.map((r, i) => ({ v: r.v, p: [`${label}:${i}`], h: r.h || [], ck: r.ck })),
   };
 }
 
@@ -596,8 +602,256 @@ function checkGrouped(e, gx, cols) {
   children(e).forEach((c) => checkGrouped(c, gx, cols));
 }
 
+// ---------------------------------------------------------------- compact columns
+function usedNames(exprs, cols) {
+  const used = new Set();
+  const note = (e) => {
+    if (e.t === 'col') used.add(e.name.toLowerCase());
+    else if (e.t === 'colidx') used.add(cols[e.i].name.toLowerCase());
+    children(e).forEach(note);
+  };
+  exprs.forEach(note);
+  return used;
+}
+
+// lane columns where only the columns the query really uses are visible (keeps wide rows readable)
+function compactCols(cols, exprs) {
+  const u = usedNames(exprs, cols);
+  return laneCols(cols).map((c) => ({ ...c, hidden: c.hidden || !u.has(c.name.toLowerCase()) }));
+}
+
+// ---------------------------------------------------------------- window function animation
+const WIN_EXPLAIN = {
+  ROW_NUMBER: '**ROW_NUMBER** numbers the rows 1, 2, 3… in window order. It never ties.',
+  RANK: '**RANK** gives tied rows the same number and then skips ahead (1, 1, 3…).',
+  DENSE_RANK: '**DENSE_RANK** gives tied rows the same number but never skips (1, 1, 2…).',
+  NTILE: '**NTILE(n)** deals the rows into n buckets of (nearly) equal size.',
+  LAG: '**LAG** reads a value from an earlier row.',
+  LEAD: '**LEAD** reads a value from a later row.',
+  FIRST_VALUE: '**FIRST_VALUE** reads the first row of the window.',
+  LAST_VALUE: '**LAST_VALUE** reads the last row of the window.',
+  SUM: "**SUM** adds up the rows inside each row's window.",
+  AVG: "**AVG** averages the rows inside each row's window.",
+  COUNT: "**COUNT** counts the rows inside each row's window.",
+  MIN: "**MIN** takes the smallest value inside each row's window.",
+  MAX: "**MAX** takes the largest value inside each row's window.",
+};
+
+function frameWords(spec) {
+  if (spec.frame) {
+    const m = /(ROWS|RANGE)[\s\S]*/i.exec(spec.text || '');
+    return m ? m[0].replace(/\)\s*$/, '').replace(/\s+/g, ' ').trim() : 'a custom frame';
+  }
+  return spec.orderBy.length ? 'from the first row down to this row (and its ties)' : 'the whole partition';
+}
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+function windowFrames(T, rel, envs, wins, rec, winVals, exprs) {
+  const rows = rel.rows;
+  const baseCols = compactCols(rel.cols, exprs);
+  const specs = new Map();
+  wins.forEach((w) => {
+    const k = keyOf([w.over.partitionBy, w.over.orderBy, w.over.frame]);
+    const l = specs.get(k);
+    if (l) { if (!l.includes(w)) l.push(w); } else specs.set(k, [w]);
+  });
+  const extraCols = []; // columns holding window values, accumulated over specs
+  const extraVals = rows.map(() => []);
+  let specNo = 0;
+
+  for (const fns of specs.values()) {
+    specNo++;
+    const spec = fns[0].over;
+    const byFirst = (a, b) => Math.min(...a.sorted) - Math.min(...b.sorted);
+    const parts = rec.get(fns[0]).slice().sort(byFirst);
+    // every function has its own per-row detail (neighbour / frame), same partition order for all
+    const perOf = (f, part, p) => rec.get(f).slice().sort(byFirst)[parts.indexOf(part)].per[p];
+    const tag = specs.size > 1 ? ` (window ${specNo} of ${specs.size})` : '';
+    const fnCols = fns.map((f) => ({ name: f.label || f.name, base: null, tbl: null, hidden: false }));
+    const done = fns.map(() => new Set());
+    const pLabel = (part) => (spec.partitionBy.length ? spec.partitionBy.map((e) => fmt(ev(e, envs[part.sorted[0]]))).join(' · ') : 'all rows');
+    const scopeCols = (withFn) => baseCols.concat(extraCols, withFn ? fnCols : []);
+    const valsOf = (gi, withFn, isDone) => rows[gi].v.concat(extraVals[gi], withFn ? fns.map((f, k) => (isDone(k, gi) ? winVals.get(f)[gi] : PENDING)) : []);
+    const windowOrder = (part) => (spec.orderBy.length ? part.sorted : part.sorted.slice().sort((a, b) => a - b));
+
+    // one frame: lanes = partitions, rows arranged by o.order(part)
+    const build = (o) => {
+      const lanes = [];
+      const chips = [];
+      let shown = 0, total = 0;
+      for (const part of parts) {
+        const idxs = o.order(part);
+        total += idxs.length;
+        const lane = lanes.length;
+        lanes.push({ label: pLabel(part), note: plural(idxs.length, 'row'), cols: scopeCols(o.withFn) });
+        for (const gi of idxs) {
+          if (shown >= MAX_CHIPS) break;
+          shown++;
+          const c = { key: rowKey(rows[gi]), lane, vals: valsOf(gi, o.withFn, o.isDone || (() => false)), h: rows[gi].h };
+          const fl = o.flag && o.flag(part, gi);
+          if (fl) c.flag = fl;
+          if (o.hl) c.hl = o.hl;
+          chips.push(c);
+        }
+      }
+      T.frame({
+        stage: 'WINDOW', title: o.title, short: o.short, code: spec.text || '', layout: spec.partitionBy.length ? 'wrap' : 'single',
+        caption: o.caption, lanes, chips, hidden: Math.max(0, total - shown), in: rows.length, out: rows.length,
+      });
+    };
+
+    // 1) PARTITION BY
+    if (spec.partitionBy.length) {
+      build({
+        title: `PARTITION BY${tag}`, short: 'PARTITION', order: (part) => part.sorted.slice().sort((a, b) => a - b),
+        caption: `Window functions look at related rows. **PARTITION BY** splits the ${rows.length} rows into ${plural(parts.length, 'independent partition')} — but, unlike GROUP BY, no rows are merged or removed.`,
+      });
+    }
+    // 2) ORDER BY inside each partition
+    if (spec.orderBy.length) {
+      build({
+        title: `ORDER BY in window${tag}`, short: 'WINDOW ORDER', order: (part) => part.sorted,
+        caption: `Inside ${spec.partitionBy.length ? 'each partition' : 'the window'} the rows are put in the window's own ORDER BY order. This order belongs to the window function only — the query's own ORDER BY (if any) comes later.`,
+      });
+    }
+
+    // 3) walk-throughs for functions that look at neighbouring rows
+    const P0 = parts[0];
+    fns.forEach((f, k) => {
+      if (!(AGG.has(f.name) || ['LAG', 'LEAD', 'FIRST_VALUE', 'LAST_VALUE'].includes(f.name))) return;
+      const len = P0.sorted.length;
+      const picks = f.name === 'LAG' ? [0, 1] : f.name === 'LEAD' ? [len - 2, len - 1] : [0, 1, 2];
+      const samples = [...new Set(picks.filter((p) => p >= 0 && p < len))];
+      for (const p of samples) {
+        const per = perOf(f, P0, p);
+        const gi = P0.sorted[p];
+        done[k].add(gi);
+        const inWin = new Set();
+        let cap;
+        if (f.name === 'LAG' || f.name === 'LEAD') {
+          const dir = f.name === 'LAG' ? 'back' : 'ahead';
+          if (per.t !== null) inWin.add(P0.sorted[per.t]);
+          cap = per.t !== null
+            ? `Row ${p + 1} of ${len} (blue): **${f.label}** looks ${plural(per.off, 'row')} ${dir} to row ${per.t + 1} (green) and copies its value → **${fmt(winVals.get(f)[gi])}**.`
+            : `Row ${p + 1} of ${len} (blue): there is no row ${per.off} ${dir}, so **${f.label}** returns **${fmt(winVals.get(f)[gi])}**${f.args[2] ? ' (the default you supplied)' : ' because there is nothing to read there'}.`;
+        } else {
+          for (let q = per.lo; q <= per.hi; q++) inWin.add(P0.sorted[q]);
+          const n = Math.max(0, per.hi - per.lo + 1);
+          cap = `Row ${p + 1} of ${len} (blue). Its window is ${frameWords(spec)}: ${plural(n, 'row')} (green, rows ${per.lo + 1}–${per.hi + 1}). **${f.label}** over just those rows → **${fmt(winVals.get(f)[gi])}**.`;
+        }
+        build({
+          title: `${f.label} · row ${p + 1}`, short: `${f.name} · row ${p + 1}`, withFn: true, order: windowOrder,
+          isDone: (kk, g) => done[kk].has(g),
+          flag: (part, g) => (part !== P0 ? 'dim' : g === gi ? 'cur' : inWin.has(g) ? 'frame' : undefined),
+          caption: cap,
+        });
+      }
+    });
+
+    // 4) compute everything
+    const newIdx = fns.map((_, k) => baseCols.length + extraCols.length + k);
+    const rankish = fns.some((f) => f.name === 'RANK' || f.name === 'DENSE_RANK');
+    const tied = (part, g) => {
+      const p = part.sorted.indexOf(g);
+      const eq = (a, b) => part.okeys[a].every((x, kk) => (isNull(x) && isNull(part.okeys[b][kk])) || cmpSql(x, part.okeys[b][kk]) === 0);
+      return (p > 0 && eq(p, p - 1)) || (p < part.sorted.length - 1 && eq(p, p + 1));
+    };
+    const names = [...new Set(fns.map((f) => f.name))];
+    build({
+      title: `Compute${tag}`, short: 'COMPUTE', withFn: true, order: windowOrder, isDone: () => true, hl: newIdx,
+      flag: rankish ? (part, g) => (spec.orderBy.length && tied(part, g) ? 'frame' : undefined) : undefined,
+      caption: `${fns.length === 1 ? 'The window column is' : 'The window columns are'} now filled in for every row. ${names.map((n) => WIN_EXPLAIN[n]).filter(Boolean).join(' ')}${rankish ? ' Green rows are tied on the ORDER BY value.' : ''}`,
+    });
+    fns.forEach((f, k) => { extraCols.push(fnCols[k]); rows.forEach((_, gi) => extraVals[gi].push(winVals.get(f)[gi])); });
+  }
+}
+
+// ---------------------------------------------------------------- CTE / derived-table animation
+// A CTE or derived table is a mini query. Its own pipeline plays first (frames tagged with a scope and a
+// key prefix so they never clash with the main query), then its result is parked on a dashed "shelf"
+// lane until the main query's rows grow out of it.
+function tagFrames(T, f0, sh0, prefix, scope, name) {
+  const frames = T.frames.slice(f0);
+  const keys = new Set(frames.flatMap((f) => f.chips.map((c) => c.key)));
+  const pk = (k) => (keys.has(k) ? prefix + k : k);
+  for (const f of frames) {
+    f.scope = scope;
+    f.short = `${name} ▸ ${f.short || (f.title.length > 22 ? f.stage : f.title)}`;
+    for (const c of f.chips) {
+      if (c.from) c.from = c.from.map(pk);
+      if (c.absorb) c.absorb = c.absorb.map(pk);
+      c.key = prefix + c.key;
+    }
+  }
+  for (const sh of T.shelves.slice(sh0)) sh.chips = sh.chips.map((c) => ({ ...c, key: prefix + c.key }));
+}
+
+function collectDerived(from, acc = []) {
+  if (from.type === 'join') { collectDerived(from.left, acc); collectDerived(from.right, acc); } else if (from.type === 'subquery') acc.push(from);
+  return acc;
+}
+
+// run() must return { cols, rows:[{ v, h, p | fk }] }. Returns the same shape with rows carrying `ck`
+// (the key of their chip on the shelf) so later frames can grow out of them.
+function runPrelude(T, name, kind, run) {
+  const f0 = T.frames.length, s0 = T.steps.length, sh0 = T.shelves.length;
+  const t0 = now();
+  const res = run();
+  const prefix = `${name}/`;
+  const scope = kind === 'cte' ? `CTE ${name}` : `Subquery ${name}`;
+  tagFrames(T, f0, sh0, prefix, scope, name);
+  for (let i = s0; i < T.steps.length; i++) if (!T.steps[i].scope) T.steps[i].scope = scope;
+  const rows = res.rows.map((r, i) => ({ ...r, ck: prefix + (r.fk ?? (r.p && r.p[0]) ?? `row${i}`) }));
+  const cols = laneCols(res.cols);
+  const chips = capped(rows).map((r) => ({ key: r.ck, lane: 0, vals: r.v, h: r.h || [] }));
+  const what = kind === 'cte' ? 'CTE' : 'derived table';
+  T.frame({
+    stage: 'WITH', scope, short: `${name} ✔`, title: `${name} is ready`, code: kind === 'cte' ? `WITH ${name} AS (…)` : `(…) ${name}`,
+    caption: `The ${what} **${name}** has finished: ${rows.length} row${rows.length === 1 ? '' : 's'}. It now exists as a temporary table (dashed box) that the main query can read like any other table.`,
+    lanes: [{ label: `${name} · ${what} result`, cols, shelf: true }], chips, hidden: Math.max(0, rows.length - MAX_CHIPS), in: rows.length, out: rows.length,
+  });
+  T.shelves.push({ name: `${name} · ${what}`, cols, chips: chips.map((c) => ({ ...c })), readyIdx: T.frames.length - 1 });
+  T.steps.push({ stage: kind === 'cte' ? 'WITH' : 'SUBQUERY', detail: `${name} → ${rows.length} row${rows.length === 1 ? '' : 's'}${res.iterations ? ' (recursive)' : ''}`, rowsIn: 0, rowsOut: rows.length, ms: Math.round((now() - t0) * 100) / 100 });
+  return { ...res, rows };
+}
+
+// recursive CTE: one frame per round so you can watch the hierarchy grow
+function recursiveFrames(T, name, cols, rounds) {
+  const lc = laneCols(cols);
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  const acc = [];
+  rounds.forEach((rows, k) => {
+    const prev = k > 0 ? rounds[k - 1].length : 0;
+    const mk = (r, lane, flag) => ({ key: r.fk, lane, vals: r.v, h: r.h || [], ...(flag ? { flag } : {}) });
+    T.frame({
+      stage: 'RECURSION', title: `Round ${k}`, short: `round ${k}`, code: k === 0 ? 'anchor query' : 'recursive query', layout: 'side',
+      caption: k === 0
+        ? `**Round 0 — the anchor.** The first query runs once and seeds the result with ${plural(rows.length, 'row')}.`
+        : `**Round ${k}.** The recursive part is joined with the ${plural(prev, 'row')} found in round ${k - 1} and finds ${plural(rows.length, 'new row')} — the next level down.`,
+      lanes: [{ label: `${name} so far`, note: plural(acc.length, 'row'), cols: lc }, { label: `round ${k}`, note: `${plural(rows.length, 'new row')}`, cols: lc }],
+      chips: [...capped(acc).map((r) => mk(r, 0)), ...capped(rows).map((r) => mk(r, 1, 'new'))],
+      hidden: Math.max(0, acc.length - MAX_CHIPS) + Math.max(0, rows.length - MAX_CHIPS), in: prev, out: rows.length,
+    });
+    acc.push(...rows);
+  });
+  T.frame({
+    stage: 'RECURSION', title: 'No new rows — stop', short: 'stop', code: '', layout: 'side',
+    caption: `**Round ${rounds.length}** finds no new rows, so the recursion stops. The CTE's result is everything collected: ${plural(acc.length, 'row')}.`,
+    lanes: [{ label: `${name} so far`, note: plural(acc.length, 'row'), cols: lc }, { label: `round ${rounds.length}`, note: '0 new rows', cols: lc }],
+    chips: capped(acc).map((r) => ({ key: r.fk, lane: 0, vals: r.v, h: r.h || [] })), hidden: Math.max(0, acc.length - MAX_CHIPS), in: 0, out: 0,
+  });
+}
+
 function execSelect(core, q, ctx, outer, T) {
-  const st = { ctx, outer, T, aliases: new Set() };
+  const st = { ctx, outer, T, aliases: new Set(), derived: null };
+  if (T && core.from) {
+    // derived tables (subqueries in FROM) play their own pipeline first, then wait on the shelf
+    for (const node of collectDerived(core.from)) {
+      if (!st.derived) st.derived = new Map();
+      st.derived.set(node, runPrelude(T, node.alias, 'subquery', () => execQuery(node.query, ctx, outer, T)));
+    }
+  }
   let t0 = now();
   const step = (stage, detail, rowsIn, rowsOut, extra = {}) => {
     if (!T) return;
@@ -672,13 +926,9 @@ function execSelect(core, q, ctx, outer, T) {
       const lanes = [];
       const chips = [];
       // buckets only show the columns the query actually uses, so they stay compact
-      const used = new Set();
-      const note = (e) => { if (e.t === 'col') used.add(e.name.toLowerCase()); children(e).forEach(note); };
-      [...items.map((i) => i.expr), ...gx, ...(core.having ? [core.having] : []), ...orderItems.map((o) => o.expr)].forEach((e) => {
-        if (e.t === 'colidx') used.add(rel.cols[e.i].name.toLowerCase()); else note(e);
-      });
-      const bucketCols = laneCols(rel.cols).map((c) => ({ ...c, hidden: c.hidden || !used.has(c.name.toLowerCase()) }));
+      const bucketCols = compactCols(rel.cols, [...items.map((x) => x.expr), ...gx, ...(core.having ? [core.having] : []), ...orderItems.map((o) => o.expr)]);
       for (const g of glist) {
+        if (lanes.length >= 12) break; // keep the picture readable; the rest are summarised in the caption
         const lane = lanes.length;
         const label = gx.length ? g.kv.map(fmt).join(' · ') : 'all rows';
         const gc = [];
@@ -690,7 +940,7 @@ function execSelect(core, q, ctx, outer, T) {
       T.frame({
         stage: 'GROUP BY', title: 'GROUP BY', code: core.groupText || '',
         caption: gx.length
-          ? `Rows that share the same **${core.groupText}** are pooled into one bucket — ${glist.length} bucket${glist.length === 1 ? '' : 's'} from ${rel.rows.length} rows.`
+          ? `Rows that share the same **${core.groupText}** are pooled into one bucket — ${glist.length} bucket${glist.length === 1 ? '' : 's'} from ${rel.rows.length} rows${glist.length > 12 ? ' (the first 12 are drawn)' : ''}.`
           : `An aggregate with no GROUP BY treats the whole table as a single bucket.`,
         layout: 'wrap', lanes, chips, hidden: Math.max(0, rel.rows.length - chips.length), in: rel.rows.length, out: glist.length,
       });
@@ -741,8 +991,10 @@ function execSelect(core, q, ctx, outer, T) {
   } else {
     const envs = rel.rows.map((r) => mkEnv(rel.cols, r.v, ctx, outer));
     if (wins.length) {
-      const map = computeWindows(wins, envs);
+      const rec = T && core.from ? new Map() : null;
+      const map = computeWindows(wins, envs, rec);
       envs.forEach((env, i) => { env.win = map; env.wi = i; });
+      if (rec) windowFrames(T, rel, envs, wins, rec, map, [...items.map((x) => x.expr), ...orderItems.map((o) => o.expr)]);
     }
     out = rel.rows.map((r, i) => ({ key: rowKey(r), v: items.map((it) => ev(it.expr, envs[i])), h: r.h, env: envs[i], absorb: [] }));
     step('SELECT', items.map((i) => i.text).join(', '), rel.rows.length, out.length);
@@ -751,7 +1003,7 @@ function execSelect(core, q, ctx, outer, T) {
       T.frame({
         stage: 'SELECT', title: 'SELECT', code: items.map((i) => i.text).join(', '),
         caption: wins.length
-          ? 'SELECT picks the output columns. Window functions look at neighbouring rows but do NOT collapse them.'
+          ? 'Rows return to their original order, each carrying its window value(s). Window functions never remove or merge rows — that is the difference from GROUP BY.'
           : 'SELECT picks (and computes) the output columns — columns you did not ask for are cut away.',
         lanes: outLane, chips: capped(out).map((o) => ({ key: o.key, lane: 0, vals: o.v, h: o.h })),
         hidden: Math.max(0, out.length - MAX_CHIPS), in: out.length, out: out.length,
@@ -940,7 +1192,7 @@ function execBody(body, ctx, outer) {
   return { cols: L.cols, rows, setInfo: { op: body.op, all: body.all, L, R } };
 }
 
-function resolveCte(c, ctx, recursive) {
+function resolveCte(c, ctx, recursive, T) {
   const name = c.name.toLowerCase();
   const rename = (cols) => cols.map((col, i) => ({ name: c.cols ? c.cols[i] || col.name : col.name, base: col.base || null }));
   const body = c.query.body;
@@ -948,31 +1200,34 @@ function resolveCte(c, ctx, recursive) {
     const anchor = execBody(body.left, ctx, null);
     const cols = rename(anchor.cols);
     const seen = new Set();
-    let all = [];
-    let work = anchor.rows.filter((r) => body.all || !seen.has(keyOf(r.v)) && seen.add(keyOf(r.v)));
-    all = all.concat(work);
+    const fresh = (rows) => rows.filter((r) => body.all || (!seen.has(keyOf(r.v)) && seen.add(keyOf(r.v))));
+    let work = fresh(anchor.rows);
+    const rounds = [];
+    const stamp = (rows, k) => rows.map((r, i) => ({ v: r.v, h: r.h, fk: `R${k}:${i}` }));
+    let total = work.length;
+    rounds.push(stamp(work, 0));
     for (let iter = 0; work.length; iter++) {
-      if (iter > 1000 || all.length > 5000) throw new SqlError('Recursive CTE did not stop (more than 1000 iterations / 5000 rows). Make sure the recursive part eventually returns no rows.');
+      if (iter > 1000 || total > 5000) throw new SqlError('Recursive CTE did not stop (more than 1000 iterations / 5000 rows). Make sure the recursive part eventually returns no rows.');
       ctx.ctes.set(name, { cols, rows: work.map((r) => ({ v: r.v, h: r.h })) });
       const res = execBody(body.right, ctx, null);
-      work = res.rows.filter((r) => body.all || !seen.has(keyOf(r.v)) && seen.add(keyOf(r.v)));
-      all = all.concat(work);
+      work = fresh(res.rows);
+      total += work.length;
+      if (work.length) rounds.push(stamp(work, iter + 1));
     }
-    return { cols, rows: all.map((r) => ({ v: r.v, h: r.h })), iterations: true };
+    if (T) recursiveFrames(T, c.name, cols, rounds);
+    return { cols, rows: rounds.flat(), iterations: true };
   }
-  const res = execQuery(c.query, ctx, null, null);
+  const res = execQuery(c.query, ctx, null, T);
   if (c.cols && c.cols.length !== res.cols.length) throw new SqlError(`CTE "${c.name}" lists ${c.cols.length} column names but its query returns ${res.cols.length}`);
-  return { cols: rename(res.cols), rows: res.rows.map((r) => ({ v: r.v, h: r.h })) };
+  return { cols: rename(res.cols), rows: res.rows.map((r) => ({ v: r.v, h: r.h, p: r.p })) };
 }
 
 export function execQuery(q, ctx0, outer, T) {
   const ctx = { db: ctx0.db, ctes: new Map(ctx0.ctes) };
   ctx.sub = (query, scope) => execQuery(query, ctx, scope, null);
   for (const c of q.with) {
-    const t0 = now();
-    const r = resolveCte(c, ctx, q.recursive);
+    const r = T ? runPrelude(T, c.name, 'cte', () => resolveCte(c, ctx, q.recursive, T)) : resolveCte(c, ctx, q.recursive, null);
     ctx.ctes.set(c.name.toLowerCase(), r);
-    if (T) T.step({ stage: 'WITH', detail: `${c.name} → ${r.rows.length} row${r.rows.length === 1 ? '' : 's'}${r.iterations ? ' (recursive)' : ''}`, rowsIn: 0, rowsOut: r.rows.length, ms: Math.round((now() - t0) * 100) / 100 });
   }
   if (q.body.type === 'select') return execSelect(q.body, q, ctx, outer, T);
 

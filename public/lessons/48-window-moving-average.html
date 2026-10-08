@@ -23,7 +23,7 @@
         <h2>The idea</h2>
         <p>A <b>frame</b> narrows the window around the current row. <code>ROWS BETWEEN 2 PRECEDING AND CURRENT ROW</code> averages this row and the two before it — a 3-row moving average that smooths noisy data.</p>
         <h2>What to watch</h2>
-        <ul><li>The first two rows average fewer values because the frame runs off the start.</li></ul>
+        <ul><li>Each step shows the <b>blue</b> current row and its 3-row frame in <b>green</b> (itself + 2 before).</li><li>Rows 1 and 2 have a smaller frame because it runs off the start — the caption counts the rows used.</li></ul>
         
         
         <div class="callout"><b>Your turn.</b> The query is live — edit it and press <b>Run</b>. Colours tell you which table each cell came from. Use <b>Reset data</b> to undo any INSERT / UPDATE / DELETE.</div>

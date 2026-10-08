@@ -23,7 +23,7 @@
         <h2>The idea</h2>
         <p>Ratings tie a lot. <code>RANK</code> gives tied rows the same number and then <b>skips</b> (1, 1, 1, 4…). <code>DENSE_RANK</code> does not skip (1, 1, 1, 2…). <code>ROW_NUMBER</code> never ties.</p><p>Add <code>PARTITION BY</code> to restart the numbering for each group: <code>OVER (PARTITION BY dept_id ORDER BY salary DESC)</code>.</p>
         <h2>What to watch</h2>
-        <ul><li>Compare the two grey rank columns where several reviews share a rating.</li></ul>
+        <ul><li>Rows are sorted by rating; rows that <b>tie</b> are outlined in green.</li><li>Compare the two grey columns: RANK jumps (1, 1, 1, 4…) after a tie, DENSE_RANK does not (1, 1, 1, 2…).</li></ul>
         
         
         <div class="callout"><b>Your turn.</b> The query is live — edit it and press <b>Run</b>. Colours tell you which table each cell came from. Use <b>Reset data</b> to undo any INSERT / UPDATE / DELETE.</div>

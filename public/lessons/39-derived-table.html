@@ -23,7 +23,7 @@
         <h2>The idea</h2>
         <p>A subquery in <code>FROM</code> must have an alias (<code>t</code>). It is computed first, then treated like any other table. This lets you group first and join afterwards.</p>
         <h2>What to watch</h2>
-        <ul><li>The derived rows (grey) have no table to fly out of; they appear, then join with departments.</li></ul>
+        <ul><li>The subquery <b>t</b> plays its own mini-pipeline first (FROM → GROUP BY → collapse), tagged <b>Subquery t</b>.</li><li>Its result then waits in a <b>dashed box</b> — a temporary table — while the main query starts.</li><li>When the join needs it, the rows leave the dashed box and merge with <b>departments</b>.</li></ul>
         
         
         <div class="callout"><b>Your turn.</b> The query is live — edit it and press <b>Run</b>. Colours tell you which table each cell came from. Use <b>Reset data</b> to undo any INSERT / UPDATE / DELETE.</div>

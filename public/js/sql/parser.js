@@ -558,6 +558,7 @@ class Parser {
   }
 
   call() {
+    const start = this.cur.pos;
     const name = this.t[this.i++].u;
     this.expectP('(');
     const fn = { t: 'fn', name, args: [], distinct: false, star: false, over: null };
@@ -567,7 +568,14 @@ class Parser {
       do { fn.args.push(this.expr()); } while (this.acceptP(','));
     }
     this.expectP(')');
-    if (this.acceptKw('OVER')) fn.over = this.windowSpec();
+    // source text, kept non-enumerable so it never affects AST comparisons (GROUP BY checks)
+    Object.defineProperty(fn, 'label', { value: this.textFrom(start), enumerable: false });
+    if (this.isKw('OVER')) {
+      const os = this.cur.pos;
+      this.i++;
+      fn.over = this.windowSpec();
+      Object.defineProperty(fn.over, 'text', { value: this.textFrom(os), enumerable: false });
+    }
     return fn;
   }
 

@@ -58,10 +58,11 @@ export function renderAnalyze(el, result) {
   let clauseHtml = '';
   if (result.clauses.length) {
     const used = new Set();
+    const mainNo = (i) => steps.slice(0, i + 1).filter((x) => !x.scope).length;
     const numFor = (kind, nth = 0) => {
       let seen = -1;
       for (let i = 0; i < steps.length; i++) {
-        if (stepKind(steps[i].stage) === kind) { seen++; if (seen === nth) { used.add(i); return i + 1; } }
+        if (!steps[i].scope && stepKind(steps[i].stage) === kind) { seen++; if (seen === nth) { used.add(i); return mainNo(i); } }
       }
       return null;
     };
@@ -87,8 +88,9 @@ export function renderAnalyze(el, result) {
     if (s.comparisons) note.push(`${s.comparisons.toLocaleString()} row pairs compared`);
     if (s.groups !== undefined) note.push(`${s.groups} group${s.groups === 1 ? '' : 's'}`);
     if (s.dropped) note.push(`${s.dropped} dropped`);
-    return `<li class="step"><span class="n">${i + 1}</span>
-      <div class="sbody"><div class="shead"><b>${esc(s.stage)}</b><code>${esc(s.detail || '')}</code></div>
+    const no = s.scope ? '·' : steps.slice(0, i + 1).filter((x) => !x.scope).length;
+    return `<li class="step${s.scope ? ' scoped' : ''}"><span class="n">${no}</span>
+      <div class="sbody"><div class="shead">${s.scope ? `<span class="scope-tag">${esc(s.scope)}</span>` : ''}<b>${esc(s.stage)}</b><code>${esc(s.detail || '')}</code></div>
       <div class="bars"><span class="bar in" style="width:${((s.rowsIn || 0) / max) * 100}%"></span><span class="bar out" style="width:${((s.rowsOut || 0) / max) * 100}%"></span></div>
       <div class="snums"><span>${s.rowsIn ?? '–'} → <b>${s.rowsOut ?? '–'}</b> rows</span>${delta ? `<span class="${delta < 0 ? 'neg' : 'pos'}">${delta > 0 ? '+' : ''}${delta}</span>` : ''}${note.length ? `<span class="note">${esc(note.join(' · '))}</span>` : ''}<span class="ms">${s.ms} ms</span></div></div></li>`;
   }).join('');

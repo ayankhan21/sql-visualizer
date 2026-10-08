@@ -23,7 +23,7 @@
         <h2>The idea</h2>
         <p>Aggregates become <b>running</b> aggregates when given an <code>OVER (ORDER BY …)</code>: each row's value covers "from the first row up to me".</p>
         <h2>What to watch</h2>
-        <ul><li>Look at the last column: each value is the previous one plus this row's line total.</li></ul>
+        <ul><li>Row-by-row walk-through: the <b>blue</b> row is the current one, the <b>green</b> rows are inside its window (first row up to itself).</li><li>Cells still showing <b>…</b> have not been computed yet. The total grows as the window grows.</li></ul>
         
         
         <div class="callout"><b>Your turn.</b> The query is live — edit it and press <b>Run</b>. Colours tell you which table each cell came from. Use <b>Reset data</b> to undo any INSERT / UPDATE / DELETE.</div>

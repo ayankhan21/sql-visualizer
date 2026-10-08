@@ -21,7 +21,9 @@ Learn SQL by **watching real table rows move**. Rows fly out of their tables, me
 
 SELECT with DISTINCT, WHERE, GROUP BY, HAVING, ORDER BY, LIMIT/OFFSET; INNER, LEFT, RIGHT, FULL and CROSS joins (and self joins); subqueries (IN, EXISTS, scalar, correlated, derived tables); CTEs including `WITH RECURSIVE`; UNION / INTERSECT / EXCEPT; CASE; window functions (ROW_NUMBER, RANK, DENSE_RANK, NTILE, LAG, LEAD, FIRST/LAST_VALUE, aggregates with frames); common scalar functions; INSERT, UPDATE, DELETE, CREATE TABLE, ALTER TABLE, DROP TABLE (your own table only), EXPLAIN.
 
-Subqueries and CTEs are not animated step by step. The outer query is animated with their result already applied.
+**Fully animated, step by step:** every join type, WHERE, GROUP BY, HAVING, DISTINCT, ORDER BY, LIMIT, set operations, **window functions** (partition → in-window order → row-by-row walk-through of the frame / LAG / LEAD → computed column), **CTEs and derived tables** (their own pipeline plays first, the result waits in a dashed "shelf" box, then flows into the main query) and **recursive CTEs** (one frame per round).
+
+**Not animated step by step:** subqueries used inside expressions (`IN`, `EXISTS`, scalar and correlated subqueries). They run silently and the outer query is animated with their result already applied. Window functions combined with GROUP BY show a single collapse-and-compute frame.
 
 ## How it works
 

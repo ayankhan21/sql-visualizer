@@ -11,6 +11,7 @@ export class Tracer {
   constructor() {
     this.frames = [];
     this.steps = [];
+    this.shelves = []; // finished CTE / derived results waiting for the main query to use them
   }
 
   frame(f) {
@@ -24,6 +25,25 @@ export class Tracer {
 
 export const rowKey = (r) => r.p.join('+');
 
+// Finished CTE / derived-table results stay on stage (dashed "shelf" lane) until the first frame
+// whose chips grow out of them — that frame's `from` links make the shelf chips fly into the query.
+export function applyShelves(T) {
+  for (const sh of T.shelves) {
+    const keys = new Set(sh.chips.map((c) => c.key));
+    let end = T.frames.length;
+    for (let i = sh.readyIdx + 1; i < T.frames.length; i++) {
+      if (T.frames[i].chips.some((c) => c.from && c.from.some((k) => keys.has(k)))) { end = i; break; }
+    }
+    for (let i = sh.readyIdx + 1; i < end; i++) {
+      const f = T.frames[i];
+      if (f.final) continue;
+      const lane = f.lanes.length;
+      f.lanes.push({ label: sh.name, note: 'ready · waiting', cols: sh.cols, shelf: true });
+      sh.chips.forEach((c) => f.chips.push({ ...c, lane }));
+    }
+  }
+}
+
 export function capped(rows) {
   return rows.length > MAX_CHIPS ? rows.slice(0, MAX_CHIPS) : rows;
 }
@@ -32,7 +52,8 @@ export function capped(rows) {
 export function relChips(rows, lane = 0, withSrc = false) {
   return capped(rows).map((r) => {
     const c = { key: rowKey(r), lane, vals: r.v, h: r.h };
-    if (withSrc && r.h.length === 1) c.src = r.h[0];
+    if (r.ck) c.from = [r.ck]; // row of a finished CTE / derived table: grows out of that result
+    else if (withSrc && r.h.length === 1) c.src = r.h[0];
     return c;
   });
 }

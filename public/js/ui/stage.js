@@ -56,7 +56,7 @@ export class StagePlayer {
         </div>
         <ol class="sp-steps"></ol>
       </div>
-      <div class="sp-caption"><span class="sp-badge"></span><span class="sp-text"></span><code class="sp-code"></code></div>
+      <div class="sp-caption"><span class="sp-scope" hidden></span><span class="sp-badge"></span><span class="sp-text"></span><code class="sp-code"></code></div>
       <div class="sp-scroll"><div class="sp-stage"><div class="lanes"></div><div class="fx"></div></div></div>`;
     this.$ = (s) => this.root.querySelector(s);
     this.stepsEl = this.$('.sp-steps');
@@ -64,6 +64,7 @@ export class StagePlayer {
     this.fx = this.$('.fx');
     this.stage = this.$('.sp-stage');
     this.badge = this.$('.sp-badge');
+    this.scope = this.$('.sp-scope');
     this.text = this.$('.sp-text');
     this.code = this.$('.sp-code');
     this.playBtn = this.$('[data-a=play]');
@@ -142,7 +143,7 @@ export class StagePlayer {
   renderSteps() {
     // collapse consecutive frames with the same stage so the stepper stays short
     this.stepsEl.innerHTML = this.frames
-      .map((f, i) => `<li><button data-a="step" data-i="${i}" class="${f.final ? 'is-final' : ''}" title="${esc(f.caption.replace(/\*\*/g, ''))}">${esc(f.stage === 'RESULT' ? 'RESULT' : f.title.length > 22 ? f.stage : f.title)}</button></li>`)
+      .map((f, i) => `<li><button data-a="step" data-i="${i}" class="${f.final ? 'is-final' : ''}" title="${esc(f.caption.replace(/\*\*/g, ''))}">${esc(f.short || (f.stage === 'RESULT' ? 'RESULT' : f.title.length > 22 ? f.stage : f.title))}</button></li>`)
       .join('');
   }
 
@@ -232,7 +233,7 @@ export class StagePlayer {
       const laneChips = frame.chips.filter((c) => (c.lane || 0) === li);
       const ww = laneWidths(lane, laneChips);
       const laneEl = document.createElement('section');
-      laneEl.className = 'lane';
+      laneEl.className = 'lane' + (lane.shelf ? ' shelf' : '');
       const head = ww.idx.map((ci, k) => `<span class="hcell ${tc(lane.cols[ci].base)}" style="width:${ww.w[k]}px" title="${esc(lane.cols[ci].name)}">${esc(lane.cols[ci].name)}</span>`).join('');
       laneEl.innerHTML = `<header class="lane-title"><b>${esc(lane.label || '')}</b>${lane.note ? `<em>${esc(lane.note)}</em>` : `<em>${laneChips.length ? laneChips.length + ' row' + (laneChips.length === 1 ? '' : 's') : ''}</em>`}</header>
         ${ww.idx.length ? `<div class="lane-cols">${head}</div>` : ''}<div class="lane-body"></div>`;
@@ -254,6 +255,8 @@ export class StagePlayer {
     }
 
     // ---- caption
+    this.scope.hidden = !frame.scope;
+    this.scope.textContent = frame.scope || '';
     this.badge.textContent = frame.stage === 'RESULT' ? 'RESULT' : frame.stage;
     this.badge.dataset.stage = frame.stage;
     this.text.innerHTML = richText(frame.caption || '');

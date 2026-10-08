@@ -23,7 +23,7 @@
         <h2>The idea</h2>
         <p>If a subquery returns exactly one row and one column it can be used like a plain number. Here: "products pricier than the average price".</p>
         <h2>What to watch</h2>
-        <ul><li>Products at or below the average fall away.</li></ul>
+        <ul><li>The subquery runs first and collapses to <b>one value</b> — the average price — shown in the dashed box.</li><li>Every product price is compared with that single number: green rows are above it, red rows fall away.</li></ul>
         
         
         <div class="callout"><b>Your turn.</b> The query is live — edit it and press <b>Run</b>. Colours tell you which table each cell came from. Use <b>Reset data</b> to undo any INSERT / UPDATE / DELETE.</div>

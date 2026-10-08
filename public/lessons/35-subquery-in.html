@@ -21,9 +21,9 @@
         <h1>Subqueries with IN</h1>
         <p class="muted">A query inside a query.</p>
         <h2>The idea</h2>
-        <p>A <b>subquery</b> is a SELECT in parentheses. Here it produces a list of product ids, and the outer query keeps products whose id is in that list. The inner query is evaluated first.</p><p>Subqueries are not animated step by step — the outer pipeline is shown, with the inner result already applied inside WHERE.</p>
+        <p>A <b>subquery</b> is a SELECT in parentheses. Here it produces a list of product ids, and the outer query keeps products whose id is in that list. The inner query is evaluated first.</p><p>This subquery does not depend on the outer row, so it runs <b>once, first</b>. The outer rows step aside while it plays; its result — a list of product ids — then waits in a dashed box while every outer row is tested against it.</p>
         <h2>What to watch</h2>
-        <ul><li>Only the outer query's rows move; the filter uses the hidden inner result.</li></ul>
+        <ul><li>The outer rows are <b>parked</b> in a side box while the subquery plays its own mini-pipeline (read order_items → filter quantity → pick product_id).</li><li>The finished list waits in a <b>dashed box</b>. Then <b>every product</b> is tested: green = its id is in the list, red = it is not.</li><li>Red rows fall away at WHERE.</li></ul>
         
         
         <div class="callout"><b>Your turn.</b> The query is live — edit it and press <b>Run</b>. Colours tell you which table each cell came from. Use <b>Reset data</b> to undo any INSERT / UPDATE / DELETE.</div>

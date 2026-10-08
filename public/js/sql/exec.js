@@ -83,6 +83,7 @@ function lookupCol(scope, table, name) {
         const owners = idx.map((i) => s.cols[i].tbl).filter(Boolean).join(' and ');
         throw new SqlError(`Column "${name}" is ambiguous${owners ? ` (it exists in ${owners})` : ''} — write it as table.${name}`);
       }
+      if (s !== scope) { s.outerRef = true; (s.outerCols || (s.outerCols = new Set())).add(s.cols[idx[0]].name); }
       return [s, idx[0]];
     }
   }
@@ -794,25 +795,25 @@ function collectDerived(from, acc = []) {
 
 // run() must return { cols, rows:[{ v, h, p | fk }] }. Returns the same shape with rows carrying `ck`
 // (the key of their chip on the shelf) so later frames can grow out of them.
-function runPrelude(T, name, kind, run) {
+function runPrelude(T, name, kind, run, o = {}) {
   const f0 = T.frames.length, s0 = T.steps.length, sh0 = T.shelves.length;
   const t0 = now();
   const res = run();
-  const prefix = `${name}/`;
-  const scope = kind === 'cte' ? `CTE ${name}` : `Subquery ${name}`;
+  const prefix = o.prefix || `${name}/`;
+  const scope = o.scope || (kind === 'cte' ? `CTE ${name}` : `Subquery ${name}`);
   tagFrames(T, f0, sh0, prefix, scope, name);
   for (let i = s0; i < T.steps.length; i++) if (!T.steps[i].scope) T.steps[i].scope = scope;
   const rows = res.rows.map((r, i) => ({ ...r, ck: prefix + (r.fk ?? (r.p && r.p[0]) ?? `row${i}`) }));
   const cols = laneCols(res.cols);
   const chips = capped(rows).map((r) => ({ key: r.ck, lane: 0, vals: r.v, h: r.h || [] }));
-  const what = kind === 'cte' ? 'CTE' : 'derived table';
+  const what = o.what || (kind === 'cte' ? 'CTE' : 'derived table');
   T.frame({
-    stage: 'WITH', scope, short: `${name} ✔`, title: `${name} is ready`, code: kind === 'cte' ? `WITH ${name} AS (…)` : `(…) ${name}`,
-    caption: `The ${what} **${name}** has finished: ${rows.length} row${rows.length === 1 ? '' : 's'}. It now exists as a temporary table (dashed box) that the main query can read like any other table.`,
-    lanes: [{ label: `${name} · ${what} result`, cols, shelf: true }], chips, hidden: Math.max(0, rows.length - MAX_CHIPS), in: rows.length, out: rows.length,
+    stage: o.stage || 'WITH', scope, short: `${name} ✔`, title: `${name} is ready`, code: o.code || (kind === 'cte' ? `WITH ${name} AS (…)` : `(…) ${name}`),
+    caption: o.caption || `The ${what} **${name}** has finished: ${rows.length} row${rows.length === 1 ? '' : 's'}. It now exists as a temporary table (dashed box) that the main query can read like any other table.`,
+    lanes: [{ label: o.what ? `${name} result` : `${name} · ${what} result`, cols, shelf: true }], chips, hidden: Math.max(0, rows.length - MAX_CHIPS), in: rows.length, out: rows.length,
   });
   T.shelves.push({ name: `${name} · ${what}`, cols, chips: chips.map((c) => ({ ...c })), readyIdx: T.frames.length - 1 });
-  T.steps.push({ stage: kind === 'cte' ? 'WITH' : 'SUBQUERY', detail: `${name} → ${rows.length} row${rows.length === 1 ? '' : 's'}${res.iterations ? ' (recursive)' : ''}`, rowsIn: 0, rowsOut: rows.length, ms: Math.round((now() - t0) * 100) / 100 });
+  T.steps.push({ stage: o.stage || (kind === 'cte' ? 'WITH' : 'SUBQUERY'), detail: `${name} → ${rows.length} row${rows.length === 1 ? '' : 's'}${res.iterations ? ' (recursive)' : ''}`, rowsIn: 0, rowsOut: rows.length, ms: Math.round((now() - t0) * 100) / 100 });
   return { ...res, rows };
 }
 
@@ -843,6 +844,106 @@ function recursiveFrames(T, name, cols, rounds) {
   });
 }
 
+// ---------------------------------------------------------------- subquery animation (WHERE)
+// IN / scalar / EXISTS subqueries inside WHERE.
+//  * uncorrelated: the subquery plays its own pipeline first (outer rows parked in a side box),
+//    its result waits in a dashed box, then every outer row is tested against it.
+//  * correlated: the subquery visibly re-runs for the first two outer rows (using that row's values),
+//    then a test frame applies the same logic to all remaining rows.
+function findSubs(e, acc = []) {
+  if ((e.t === 'in' && e.query) || e.t === 'sub' || e.t === 'exists') acc.push(e);
+  children(e).forEach((c) => findSubs(c, acc));
+  return acc;
+}
+
+function subqueryFrames(T, core, rel, ctx, outer, keep, log) {
+  const rows = rel.rows;
+  const entries = [...log.entries()].filter(([, e]) => e.calls.length);
+  const items = expandItems(core.items, rel.cols);
+  const lc = compactCols(rel.cols, [core.where, ...items.map((i) => i.expr)]);
+  const labelCol = Math.max(0, lc.findIndex((c) => !c.hidden));
+  const rowLabel = (gi) => fmt(rows[gi].v[labelCol]);
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  const parked = (cur, verdict) => capped(rows).map((r, gi) => ({
+    key: rowKey(r), vals: r.v, h: r.h,
+    flag: gi === cur ? (verdict === undefined ? 'cur' : verdict ? 'frame' : 'hit') : 'dim',
+  }));
+  const park = (start, end, cur, verdict) => T.shelves.push({ name: 'outer rows', note: 'parked', cols: lc, chips: parked(cur, verdict), startIdx: start, endIdx: end });
+  const resultShelves = [];
+  const kindOf = (q) => (q.t === 'exists' ? 'EXISTS' : q.t === 'in' ? 'IN' : 'scalar');
+  const anyCorrelated = entries.some(([, e]) => e.calls.some((c) => c.scope.outerRef));
+
+  entries.forEach(([node, entry], n) => {
+    const query = node.query;
+    const kind = kindOf(node);
+    const name = entries.length > 1 ? `subquery ${n + 1}` : 'subquery';
+    const correlated = entry.calls.some((c) => c.scope.outerRef);
+    if (!correlated) {
+      const f0 = T.frames.length;
+      const res = runPrelude(T, name, 'subquery', () => execQuery(query, ctx, outer, T), {
+        prefix: `sq${n + 1}/`, scope: `Subquery (${kind})`, what: 'subquery result', stage: 'SUBQUERY', code: `(${kind} subquery)`,
+        caption: kind === 'IN'
+          ? `The subquery has finished on its own: it produced a **list of ${plural(entry.calls[0].res.rows.length, 'value')}** (dashed box). It does not depend on any outer row, so it only has to run once.`
+          : kind === 'scalar'
+            ? `The subquery has finished on its own: it produced the single value **${fmt(entry.calls[0].res.rows.length ? entry.calls[0].res.rows[0].v[0] : null)}** (dashed box). It does not depend on any outer row, so it only has to run once.`
+            : `The subquery has finished on its own and returned ${plural(entry.calls[0].res.rows.length, 'row')} (dashed box). It does not depend on any outer row, so it only has to run once.`,
+      });
+      void res;
+      const f1 = T.frames.length;
+      park(f0, f1, -1);
+      resultShelves.push(T.shelves.find((s) => s.readyIdx === f1 - 1));
+      return;
+    }
+    // correlated: show the first two outer rows being processed
+    const seen = new Set();
+    const samples = [];
+    for (const c of entry.calls) { if (!seen.has(c.i) && samples.length < 2) { seen.add(c.i); samples.push(c); } }
+    for (const c of samples) {
+      const f0 = T.frames.length, s0 = T.steps.length, sh0 = T.shelves.length;
+      const prefix = `sq${n + 1}r${c.i}/`;
+      const scope = `Subquery · ${rowLabel(c.i)}`;
+      const res = execQuery(query, ctx, c.scope, T);
+      tagFrames(T, f0, sh0, prefix, scope, `row ${c.i + 1}`);
+      for (let i = s0; i < T.steps.length; i++) if (!T.steps[i].scope) T.steps[i].scope = scope;
+      const outerVals = [...(c.scope.outerCols || [])].map((nm) => {
+        const ci = rel.cols.findIndex((x) => x.name.toLowerCase() === nm.toLowerCase());
+        return ci >= 0 ? `${rel.cols[ci].name} = ${fmt(rows[c.i].v[ci])}` : nm;
+      }).join(', ');
+      const pass = keep[c.i];
+      const nres = res.rows.length;
+      const what = kind === 'EXISTS'
+        ? `finds ${nres ? plural(nres, 'row') : 'no rows'}, so EXISTS is ${nres > 0 ? 'true' : 'false'}`
+        : kind === 'scalar'
+          ? `returns **${fmt(nres ? res.rows[0].v[0] : null)}**`
+          : `returns a list of ${plural(nres, 'value')}`;
+      const vIdx = T.frames.length;
+      T.frame({
+        stage: 'SUBQUERY', scope, short: `row ${c.i + 1} verdict`, title: `Verdict for ${rowLabel(c.i)}`, code: `(${kind} subquery)`,
+        caption: `**Row ${c.i + 1} (${rowLabel(c.i)}).** The subquery ran using this row's values${outerVals ? ` (${outerVals})` : ''} and ${what}. Applying the WHERE to this row: it is **${pass ? 'kept' : 'dropped'}**.`,
+        lanes: [{ label: `subquery result for ${rowLabel(c.i)}`, cols: laneCols(res.cols), shelf: true }],
+        chips: capped(res.rows).map((r) => ({ key: prefix + r.p[0], lane: 0, vals: r.v, h: r.h || [] })),
+        hidden: 0, in: nres, out: nres,
+      });
+      park(f0, vIdx, c.i);
+      park(vIdx, vIdx + 1, c.i, pass);
+    }
+  });
+
+  // test every row
+  const used = usedNames([core.where], rel.cols);
+  const hl = rel.cols.map((c, i) => (used.has(c.name.toLowerCase()) ? i : -1)).filter((i) => i >= 0);
+  T.frame({
+    stage: 'WHERE', title: 'Test every row', short: 'TEST rows', code: core.whereText,
+    caption: anyCorrelated
+      ? `That per-row subquery run is repeated for **every** row — each time with that row's own values. Result of **${core.whereText}**: green rows pass, red rows fail and are about to be dropped.`
+      : `With the subquery result in hand, **every** row is tested against **${core.whereText}**. Green rows pass; red rows fail and are about to be dropped.`,
+    lanes: [{ label: 'rows being tested', cols: laneCols(rel.cols) }],
+    chips: capped(rows).map((r, gi) => ({ key: rowKey(r), lane: 0, vals: r.v, h: r.h, flag: keep[gi] ? 'frame' : 'hit', hl })),
+    hidden: Math.max(0, rows.length - MAX_CHIPS), in: rows.length, out: keep.filter(Boolean).length,
+  });
+  return resultShelves.filter(Boolean);
+}
+
 function execSelect(core, q, ctx, outer, T) {
   const st = { ctx, outer, T, aliases: new Set(), derived: null };
   if (T && core.from) {
@@ -871,11 +972,35 @@ function execSelect(core, q, ctx, outer, T) {
   // ---- WHERE
   if (core.where) {
     const before = rel.rows;
-    const kept = [];
-    for (const r of before) if (truth(ev(core.where, mkEnv(rel.cols, r.v, ctx, outer))) === true) kept.push(r);
+    let kept = [];
+    let resultShelves = [];
+    const hasSubs = T && findSubs(core.where).length > 0;
+    if (hasSubs) {
+      // evaluate once while logging every subquery call, so we know which are correlated and what they returned
+      const rowOf = new Map();
+      const log = new Map();
+      const wctx = { ...ctx };
+      wctx.sub = (query, scope) => {
+        const res = execQuery(query, wctx, scope, null);
+        let e = log.get(query);
+        if (!e) log.set(query, (e = { calls: [] }));
+        e.calls.push({ i: rowOf.get(scope), scope, res });
+        return res;
+      };
+      const keep = before.map((r, i) => {
+        const env = mkEnv(rel.cols, r.v, wctx, outer);
+        rowOf.set(env.scope, i);
+        return truth(ev(core.where, env)) === true;
+      });
+      kept = before.filter((_, i) => keep[i]);
+      resultShelves = subqueryFrames(T, core, rel, ctx, outer, keep, new Map([...log].map(([qy, e]) => [findSubs(core.where).find((n) => n.query === qy) || { query: qy, t: 'sub' }, e])));
+    } else {
+      for (const r of before) if (truth(ev(core.where, mkEnv(rel.cols, r.v, ctx, outer))) === true) kept.push(r);
+    }
     rel = { cols: rel.cols, rows: kept };
     step('WHERE', core.whereText, before.length, kept.length, { dropped: before.length - kept.length });
     if (T) {
+      resultShelves.forEach((sh) => { sh.endIdx = T.frames.length + 1; }); // result boxes stay visible through the WHERE frame
       T.frame({
         stage: 'WHERE', title: 'WHERE', code: core.whereText,
         caption: `Test every row against **${core.whereText}**. Rows where it is true stay; the others are thrown away — ${kept.length} kept, ${before.length - kept.length} dropped.`,

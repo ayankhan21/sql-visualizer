@@ -23,7 +23,7 @@
         <h2>The idea</h2>
         <p><code>EXISTS (subquery)</code> is true when the subquery returns <b>at least one row</b>. What it selects does not matter — <code>SELECT 1</code> is a convention. Use <code>NOT EXISTS</code> for "has none".</p>
         <h2>What to watch</h2>
-        <ul><li>Customers with no cancelled order are dropped.</li></ul>
+        <ul><li>For each customer the subquery looks for a cancelled order <b>belonging to that customer</b>. You see it run for the first two customers.</li><li>EXISTS only cares whether <b>at least one row</b> comes back: rows found → keep, none → drop.</li><li>The <b>TEST</b> frame then shows the outcome for every customer.</li></ul>
         <div class="callout tip"><b>Tip.</b> Change it to <code>NOT EXISTS</code> to find customers who never cancelled.</div>
         
         <div class="callout"><b>Your turn.</b> The query is live — edit it and press <b>Run</b>. Colours tell you which table each cell came from. Use <b>Reset data</b> to undo any INSERT / UPDATE / DELETE.</div>

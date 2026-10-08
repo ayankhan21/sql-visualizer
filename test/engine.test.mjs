@@ -190,3 +190,48 @@ test('trace: derived tables and recursive CTE rounds', () => {
   const rounds = rec.trace.frames.filter((f) => f.stage === 'RECURSION').map((f) => f.short);
   assert.deepEqual(rounds, ['c ▸ round 0', 'c ▸ round 1', 'c ▸ round 2', 'c ▸ round 3', 'c ▸ stop']);
 });
+
+test('trace: uncorrelated subquery plays first, result box stays through WHERE, outer rows are parked', () => {
+  const db = new Database();
+  const r = run(db, 'SELECT name FROM products WHERE id IN (SELECT product_id FROM order_items WHERE quantity >= 4)');
+  const f = r.trace.frames;
+  const ready = f.findIndex((x) => x.short === 'subquery ✔');
+  assert.ok(ready > 1);
+  assert.ok(f.slice(1, ready + 1).every((x) => x.scope === 'Subquery (IN)' && x.lanes.some((l) => l.label === 'outer rows')), 'outer rows parked during the subquery');
+  const test = f.findIndex((x) => x.short === 'TEST rows');
+  assert.ok(test > ready);
+  const flags = f[test].chips.map((c) => c.flag);
+  assert.ok(flags.includes('frame') && flags.includes('hit'), 'some rows pass, some fail');
+  const where = f[test + 1];
+  assert.equal(where.stage, 'WHERE');
+  assert.ok(where.lanes.some((l) => l.shelf), 'result box still visible during WHERE');
+  assert.ok(!f[test + 2].lanes.some((l) => l.shelf), 'and gone afterwards');
+  assert.equal(r.rows.length, f.at(-1).chips.length);
+});
+
+test('trace: correlated subquery re-runs for the first two outer rows, then tests all rows', () => {
+  const db = new Database();
+  const r = run(db, 'SELECT e.name FROM employees e WHERE e.salary > (SELECT AVG(salary) FROM employees WHERE dept_id = e.dept_id)');
+  const f = r.trace.frames;
+  assert.deepEqual(f.filter((x) => /verdict/.test(x.short || '')).length, 2);
+  assert.match(f.find((x) => /verdict/.test(x.short || '')).caption, /dept_id = 4/);
+  const test = f.find((x) => x.short === 'TEST rows');
+  assert.equal(test.chips.length, 20);
+  assert.equal(test.chips.filter((c) => c.flag === 'frame').length, r.rows.length);
+  assert.ok(f.every((x) => new Set(x.chips.map((c) => c.key)).size === x.chips.length), 'chip keys unique in every frame');
+});
+
+test('trace: NOT IN / NOT EXISTS / two subqueries in one WHERE all animate and agree with the result', () => {
+  const db = new Database();
+  for (const sql of [
+    'SELECT name FROM customers WHERE id NOT IN (SELECT customer_id FROM orders)',
+    "SELECT c.name FROM customers c WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id AND o.status = 'cancelled')",
+    'SELECT name FROM products WHERE price > (SELECT AVG(price) FROM products) AND id IN (SELECT product_id FROM order_items)',
+  ]) {
+    const r = run(db, sql);
+    const test = r.trace.frames.find((x) => x.short === 'TEST rows');
+    assert.ok(test, sql);
+    assert.equal(test.chips.filter((c) => c.flag === 'frame').length, r.rows.length, sql);
+    for (const x of r.trace.frames) assert.equal(new Set(x.chips.map((c) => c.key)).size, x.chips.length, sql);
+  }
+});

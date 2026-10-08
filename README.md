@@ -23,7 +23,9 @@ SELECT with DISTINCT, WHERE, GROUP BY, HAVING, ORDER BY, LIMIT/OFFSET; INNER, LE
 
 **Fully animated, step by step:** every join type, WHERE, GROUP BY, HAVING, DISTINCT, ORDER BY, LIMIT, set operations, **window functions** (partition → in-window order → row-by-row walk-through of the frame / LAG / LEAD → computed column), **CTEs and derived tables** (their own pipeline plays first, the result waits in a dashed "shelf" box, then flows into the main query) and **recursive CTEs** (one frame per round).
 
-**Not animated step by step:** subqueries used inside expressions (`IN`, `EXISTS`, scalar and correlated subqueries). They run silently and the outer query is animated with their result already applied. Window functions combined with GROUP BY show a single collapse-and-compute frame.
+**Subqueries in WHERE** (`IN`, scalar, `EXISTS`, correlated) are animated too: an uncorrelated subquery plays its own pipeline once and its result waits in a dashed box; a correlated one visibly re-runs for the first two outer rows, then a test frame colours every row pass/fail.
+
+**Not animated step by step:** subqueries in the SELECT list, HAVING or ON (they run silently), and window functions combined with GROUP BY (one combined frame).
 
 ## How it works
 

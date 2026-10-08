@@ -29,16 +29,20 @@ export const rowKey = (r) => r.p.join('+');
 // whose chips grow out of them — that frame's `from` links make the shelf chips fly into the query.
 export function applyShelves(T) {
   for (const sh of T.shelves) {
-    const keys = new Set(sh.chips.map((c) => c.key));
-    let end = T.frames.length;
-    for (let i = sh.readyIdx + 1; i < T.frames.length; i++) {
-      if (T.frames[i].chips.some((c) => c.from && c.from.some((k) => keys.has(k)))) { end = i; break; }
+    const start = sh.startIdx ?? sh.readyIdx + 1;
+    let end = sh.endIdx;
+    if (end === undefined) {
+      const keys = new Set(sh.chips.map((c) => c.key));
+      end = T.frames.length;
+      for (let i = start; i < T.frames.length; i++) {
+        if (T.frames[i].chips.some((c) => c.from && c.from.some((k) => keys.has(k)))) { end = i; break; }
+      }
     }
-    for (let i = sh.readyIdx + 1; i < end; i++) {
+    for (let i = start; i < Math.min(end, T.frames.length); i++) {
       const f = T.frames[i];
       if (f.final) continue;
       const lane = f.lanes.length;
-      f.lanes.push({ label: sh.name, note: 'ready · waiting', cols: sh.cols, shelf: true });
+      f.lanes.push({ label: sh.name, note: sh.note ?? 'ready · waiting', cols: sh.cols, shelf: true });
       sh.chips.forEach((c) => f.chips.push({ ...c, lane }));
     }
   }

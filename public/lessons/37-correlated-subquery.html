@@ -23,7 +23,7 @@
         <h2>The idea</h2>
         <p>Inside the subquery, <code>e.dept_id</code> refers to the <b>outer row</b>. Conceptually, the inner query re-runs for every employee: "average salary of <i>my</i> department". The result is each person who earns more than their own department's average.</p>
         <h2>What to watch</h2>
-        <ul><li>Employees at or below their department average are filtered out.</li></ul>
+        <ul><li>Unlike the earlier subqueries this one cannot run just once: it needs <b>each employee's department</b>, so it re-runs for every row.</li><li>You see it run for the <b>first two employees</b> (the blue row, parked at the side): the inner query narrows employees to that department and averages their salary.</li><li>A <b>verdict</b> frame applies the WHERE to that row. Then the <b>TEST</b> frame applies the same logic to all rows (green pass, red fail).</li></ul>
         
         <div class="callout warn"><b>Careful.</b> Correlated subqueries can be slow on big tables; joins or window functions often do the same work faster.</div>
         <div class="callout"><b>Your turn.</b> The query is live — edit it and press <b>Run</b>. Colours tell you which table each cell came from. Use <b>Reset data</b> to undo any INSERT / UPDATE / DELETE.</div>

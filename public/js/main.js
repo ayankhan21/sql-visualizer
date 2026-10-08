@@ -60,8 +60,8 @@ function updateCount() {
   $('#btn-create').textContent = db.customTable() ? '✎ Your table' : '＋ Create table';
 }
 
-function run(record = true) {
-  if (wb.run(editor.value) && record) renderHistory(addHistory(editor.value));
+function run() {
+  if (wb.run(editor.value)) renderHistory(addHistory(editor.value));
 }
 
 // ---- query history (clock button): fills the editor, never runs by itself
@@ -102,9 +102,9 @@ const sel = $('#examples');
 sel.innerHTML = '<option value="">Try an example…</option>' + EXAMPLES.map(([g, items]) => `<optgroup label="${esc(g)}">${items.map(([label, sql]) => `<option value="${esc(sql)}">${esc(label)}</option>`).join('')}</optgroup>`).join('');
 sel.addEventListener('change', () => {
   if (!sel.value) return;
-  editor.value = sel.value;
+  editor.value = sel.value; // picking an example only fills the editor; press Run to execute it
   sel.value = '';
-  run();
+  editor.focus();
 });
 
 // ---- relations dialog
@@ -123,4 +123,4 @@ const shared = new URLSearchParams(location.search).get('q'); // "Open in playgr
 if (shared) editor.value = shared;
 
 updateCount();
-setTimeout(() => run(false), 350); // show the animation right away (not recorded in history)
+// nothing runs on page load: a query runs only from the Run button or Ctrl+Enter
